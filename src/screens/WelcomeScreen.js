@@ -83,7 +83,7 @@ export default function WelcomeScreen({ navigation }) {
 
       {/* Title */}
       <Animated.View style={[s.titleBlock, { opacity: titleOp, transform: [{ translateY: titleY }] }]}>
-        <Text style={s.title}>Kid<Text style={s.titleAccent}>Tutor</Text></Text>
+        <Text style={s.title}>Easy<Text style={s.titleAccent}>Tutor</Text></Text>
         <Text style={s.tagline}>AI-Powered Learning for Kids</Text>
       </Animated.View>
 

@@ -4,7 +4,7 @@ import { apiRegister, apiLogin, apiUpdateProfile } from '../services/api';
 
 export const AuthContext = createContext({});
 
-const SESSION_KEY = '@kidtutor_session';
+const SESSION_KEY = '@easytutor_session';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);

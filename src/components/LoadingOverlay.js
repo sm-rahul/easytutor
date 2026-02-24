@@ -71,7 +71,7 @@ export default function LoadingOverlay() {
           </Animated.View>
         </Animated.View>
 
-        <Text style={styles.title}>KidTutor is thinking...</Text>
+        <Text style={styles.title}>EasyTutor is thinking...</Text>
         <Text style={styles.message}>{MESSAGES[messageIndex]}</Text>
 
         <View style={styles.dotsRow}>

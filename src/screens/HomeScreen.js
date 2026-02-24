@@ -196,9 +196,9 @@ export default function HomeScreen({ navigation }) {
             </View>
           </View>
 
-          {/* Why KidTutor */}
+          {/* Why EasyTutor */}
           <View style={st.section}>
-            <Text style={st.secTitle}>Why KidTutor?</Text>
+            <Text style={st.secTitle}>Why EasyTutor?</Text>
             <View style={st.whyCard}>
               <LinearGradient colors={GRADIENTS.cardAccent} style={st.whyGradientBg}>
                 <Text style={st.whyHeadline}>
@@ -256,19 +256,19 @@ export default function HomeScreen({ navigation }) {
             </View>
           </View>
 
-          {/* About KidTutor */}
+          {/* About EasyTutor */}
           <View style={st.section}>
-            <Text style={st.secTitle}>About KidTutor</Text>
+            <Text style={st.secTitle}>About EasyTutor</Text>
             <View style={st.aboutCard}>
               <View style={st.aboutHeader}>
                 <IconBadge name="sparkles" size={20} gradient={GRADIENTS.accent} bgSize={40} radius={14} />
                 <View style={{ flex: 1, marginLeft: 14 }}>
-                  <Text style={st.aboutAppName}>KidTutor</Text>
+                  <Text style={st.aboutAppName}>EasyTutor</Text>
                   <Text style={st.aboutTagline}>AI-Powered Learning for Every Child</Text>
                 </View>
               </View>
               <Text style={st.aboutDesc}>
-                KidTutor helps parents who want the best education for their children. Simply take a photo of any text — from textbooks, signs, or homework — and our AI instantly explains it in simple, kid-friendly language.
+                EasyTutor helps parents who want the best education for their children. Simply take a photo of any text — from textbooks, signs, or homework — and our AI instantly explains it in simple, kid-friendly language.
               </Text>
               <View style={st.aboutFeatures}>
                 {[
@@ -376,7 +376,7 @@ const st = {
   creditWrap: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: rs(6), marginTop: rs(16), paddingVertical: rs(8) },
   creditText: { ...FONTS.caption, color: COLORS.textMuted },
   creditName: { color: COLORS.accentLight, fontWeight: '700' },
-  // Why KidTutor section
+  // Why EasyTutor section
   whyCard: { backgroundColor: COLORS.bgCard, borderRadius: RADIUS.xl, overflow: 'hidden', borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.card },
   whyGradientBg: { padding: rs(20), paddingBottom: rs(16) },
   whyHeadline: { ...FONTS.h2, color: COLORS.textPrimary, lineHeight: ms(30), marginBottom: rs(8) },

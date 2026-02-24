@@ -1,6 +1,6 @@
-# KidTutor
+# EasyTutor
 
-KidTutor is an AI-powered learning app designed for children. Kids can take a photo of any text, and the app will summarize it, provide visual explanations, and deliver easy-to-understand explanations with real-world examples. Parents are empowered to guide their children's learning at home, even if they lack extensive formal education.
+EasyTutor is an AI-powered learning app designed for children. Kids can take a photo of any text, and the app will summarize it, provide visual explanations, and deliver easy-to-understand explanations with real-world examples. Parents are empowered to guide their children's learning at home, even if they lack extensive formal education.
 
 ## Architecture Overview
 - **React Native + Expo** for cross-platform mobile development.

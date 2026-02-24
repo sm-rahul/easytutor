@@ -137,7 +137,7 @@ function SplashScreen() {
       <LinearGradient colors={GRADIENTS.accent} style={s.splashIcon}>
         <Ionicons name="sparkles" size={44} color={COLORS.white} />
       </LinearGradient>
-      <Text style={s.splashTitle}>Kid<Text style={{ color: COLORS.accent }}>Tutor</Text></Text>
+      <Text style={s.splashTitle}>Easy<Text style={{ color: COLORS.accent }}>Tutor</Text></Text>
       <ActivityIndicator color={COLORS.accent} size="large" style={{ marginTop: 24 }} />
     </View>
   );

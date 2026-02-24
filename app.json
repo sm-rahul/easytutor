@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "KidTutor",
-    "slug": "kidtutor",
+    "name": "EasyTutor",
+    "slug": "easytutor",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./src/img/favicon.png",
@@ -13,10 +13,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.kidtutor.app"
+      "bundleIdentifier": "com.easytutor.app"
     },
     "android": {
-      "package": "com.kidtutor.app",
+      "package": "com.easytutor.app",
       "adaptiveIcon": {
         "foregroundImage": "./src/img/favicon.png",
         "backgroundColor": "#0D0F1A"

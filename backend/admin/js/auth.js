@@ -1,5 +1,5 @@
 // Admin authentication utilities
-const AUTH_KEY = 'kidtutor_admin_token';
+const AUTH_KEY = 'easytutor_admin_token';
 
 function getToken() {
   return localStorage.getItem(AUTH_KEY);

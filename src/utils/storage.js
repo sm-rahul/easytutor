@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const HISTORY_KEY = '@kidtutor_history';
-const STATS_KEY = '@kidtutor_stats';
+const HISTORY_KEY = '@easytutor_history';
+const STATS_KEY = '@easytutor_stats';
 
 export async function getHistory() {
   try {

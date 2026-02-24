@@ -107,7 +107,7 @@ export default function ProfileScreen() {
             <Text style={s.logoutText}>Sign Out</Text>
           </TouchableOpacity>
 
-          <Text style={s.version}>KidTutor v1.0.0</Text>
+          <Text style={s.version}>EasyTutor v1.0.0</Text>
           <View style={s.creditWrap}>
             <Ionicons name="code-slash-outline" size={13} color={COLORS.textMuted} />
             <Text style={s.creditText}>Developed by <Text style={s.creditName}>Rahul Namdeo</Text></Text>

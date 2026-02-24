@@ -19,7 +19,7 @@ const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'kidtutor',
+  database: process.env.DB_NAME || 'easytutor',
   waitForConnections: true,
   connectionLimit: 10,
 });
@@ -44,18 +44,18 @@ async function sendLoginEmail(user) {
     });
 
     await mailTransporter.sendMail({
-      from: '"KidTutor App" <namdevaryan434@gmail.com>',
+      from: '"EasyTutor App" <namdevaryan434@gmail.com>',
       to: user.email,
-      subject: '🔑 Login Successful - KidTutor',
+      subject: '🔑 Login Successful - EasyTutor',
       html: `
         <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 500px; margin: 0 auto; background: linear-gradient(135deg, #0F0F2D, #1A1A3E); border-radius: 16px; overflow: hidden;">
           <div style="background: linear-gradient(135deg, #A855F7, #EC4899); padding: 30px; text-align: center;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">✨ KidTutor</h1>
+            <h1 style="color: white; margin: 0; font-size: 24px;">✨ EasyTutor</h1>
             <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0;">Welcome back!</p>
           </div>
           <div style="padding: 30px; color: #E0E0E0;">
             <p style="font-size: 16px;">Hi <strong style="color: #A855F7;">${user.name}</strong>,</p>
-            <p>You just logged in to your KidTutor account. Here are your details:</p>
+            <p>You just logged in to your EasyTutor account. Here are your details:</p>
             <div style="background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 12px; padding: 20px; margin: 20px 0;">
               <table style="width: 100%; border-collapse: collapse;">
                 <tr>
@@ -83,7 +83,7 @@ async function sendLoginEmail(user) {
             <p style="font-size: 13px; color: #999;">If this wasn't you, please secure your account immediately.</p>
           </div>
           <div style="background: rgba(0,0,0,0.2); padding: 15px; text-align: center;">
-            <p style="color: #666; font-size: 12px; margin: 0;">© ${new Date().getFullYear()} KidTutor - Making Learning Fun!</p>
+            <p style="color: #666; font-size: 12px; margin: 0;">© ${new Date().getFullYear()} EasyTutor - Making Learning Fun!</p>
           </div>
         </div>
       `,
@@ -352,7 +352,7 @@ app.get('/api/stats/:userId', async (req, res) => {
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 
-const SYSTEM_PROMPT = `You are KidTutor, a friendly AI teacher for children from class 1st to 12th and beyond.
+const SYSTEM_PROMPT = `You are EasyTutor, a friendly AI teacher for children from class 1st to 12th and beyond.
 When given an image, you must FIRST determine what type of content it contains.
 
 STEP 1: DETECT CONTENT TYPE (choose exactly one)
@@ -536,7 +536,7 @@ app.post('/api/analyze', async (req, res) => {
 // SIMPLIFY ROUTE — Make explanation even easier
 // ============================================================
 
-const SIMPLIFY_PROMPT = `You are KidTutor, a friendly AI teacher. The user already received an explanation but wants an EVEN SIMPLER version.
+const SIMPLIFY_PROMPT = `You are EasyTutor, a friendly AI teacher. The user already received an explanation but wants an EVEN SIMPLER version.
 
 Take the provided content and rewrite it to be much easier to understand. Use:
 - Very short sentences (5-8 words each)
@@ -620,7 +620,7 @@ Please rewrite this in the simplest possible way for a very young child.`;
 
 // Admin credentials
 const ADMIN_USERNAME = 'admin';
-const ADMIN_PASSWORD_HASH = bcrypt.hashSync('kidtutor@admin', 10);
+const ADMIN_PASSWORD_HASH = bcrypt.hashSync('easytutor@admin', 10);
 
 // In-memory token store: Map<token, expiryTimestamp>
 const adminTokens = new Map();
@@ -822,7 +822,7 @@ app.delete('/api/admin/history/:id', requireAdmin, async (req, res) => {
 
 // Root route
 app.get('/', (req, res) => {
-  res.json({ status: 'ok', message: 'KidTutor API is running', version: '1.0.0' });
+  res.json({ status: 'ok', message: 'EasyTutor API is running', version: '1.0.0' });
 });
 
 // ============================================================
@@ -858,6 +858,6 @@ async function migrate() {
 
 migrate().then(() => {
   app.listen(PORT, () => {
-    console.log(`KidTutor API server running on http://localhost:${PORT}`);
+    console.log(`EasyTutor API server running on http://localhost:${PORT}`);
   });
 });
