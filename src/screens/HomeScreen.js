@@ -13,9 +13,9 @@ import { IconBadge, GlowIcon, CircleIcon } from '../components/AppIcon';
 import { COLORS, GRADIENTS, SPACING, RADIUS, FONTS, SHADOWS, rs, ms } from '../constants/theme';
 
 const QUOTES = [
-  'Your child is building a brighter future, one photo at a time.',
+  'Building a brighter future, one photo at a time.',
   'Every new word learned is a step forward.',
-  'You are the best teacher your child will ever have.',
+  'Learning never stops when you have the right tools.',
   'Small lessons today, big achievements tomorrow.',
 ];
 
@@ -206,7 +206,7 @@ export default function HomeScreen({ navigation }) {
                   <Text style={{ color: COLORS.accent }}>very simple</Text> to understand
                 </Text>
                 <Text style={st.whySubtext}>
-                  Your child's learning speed increases when complex topics become easy and fun.
+                  Your learning speed increases when complex topics become easy and fun.
                 </Text>
               </LinearGradient>
 
@@ -217,14 +217,14 @@ export default function HomeScreen({ navigation }) {
                     <Ionicons name="book-outline" size={20} color={COLORS.white} />
                   </LinearGradient>
                   <Text style={st.benefitTitle}>Simple Summaries</Text>
-                  <Text style={st.benefitDesc}>Hard textbook chapters become 2-3 easy sentences any child can understand</Text>
+                  <Text style={st.benefitDesc}>Hard textbook chapters become 2-3 easy sentences anyone can understand</Text>
                 </View>
                 <View style={[st.benefitCard, { borderColor: COLORS.accentPink + '30' }]}>
                   <LinearGradient colors={['#EC4899', '#F472B6']} style={st.benefitIconWrap}>
                     <Ionicons name="rocket-outline" size={20} color={COLORS.white} />
                   </LinearGradient>
                   <Text style={st.benefitTitle}>Faster Learning</Text>
-                  <Text style={st.benefitDesc}>Visual explanations help kids learn 3x faster than reading alone</Text>
+                  <Text style={st.benefitDesc}>Visual explanations help you learn 3x faster than reading alone</Text>
                 </View>
               </View>
 
@@ -234,14 +234,14 @@ export default function HomeScreen({ navigation }) {
                     <Ionicons name="globe-outline" size={20} color={COLORS.white} />
                   </LinearGradient>
                   <Text style={st.benefitTitle}>Real World Examples</Text>
-                  <Text style={st.benefitDesc}>Connect lessons to everyday life — toys, games, school, and nature</Text>
+                  <Text style={st.benefitDesc}>Connect lessons to everyday life with relatable examples</Text>
                 </View>
                 <View style={[st.benefitCard, { borderColor: COLORS.success + '30' }]}>
                   <LinearGradient colors={['#34D399', '#22D3EE']} style={st.benefitIconWrap}>
                     <Ionicons name="key-outline" size={20} color={COLORS.white} />
                   </LinearGradient>
                   <Text style={st.benefitTitle}>Key Words</Text>
-                  <Text style={st.benefitDesc}>Important vocabulary highlighted so kids build a strong word bank</Text>
+                  <Text style={st.benefitDesc}>Important vocabulary highlighted to build a strong word bank</Text>
                 </View>
               </View>
 
@@ -264,11 +264,11 @@ export default function HomeScreen({ navigation }) {
                 <IconBadge name="sparkles" size={20} gradient={GRADIENTS.accent} bgSize={40} radius={14} />
                 <View style={{ flex: 1, marginLeft: 14 }}>
                   <Text style={st.aboutAppName}>EasyTutor</Text>
-                  <Text style={st.aboutTagline}>AI-Powered Learning for Every Child</Text>
+                  <Text style={st.aboutTagline}>AI-Powered Learning for Everyone</Text>
                 </View>
               </View>
               <Text style={st.aboutDesc}>
-                EasyTutor helps parents who want the best education for their children. Simply take a photo of any text — from textbooks, signs, or homework — and our AI instantly explains it in simple, kid-friendly language.
+                EasyTutor makes learning effortless for everyone. Simply take a photo of any text — from textbooks, notes, or problems — and our AI instantly explains it in simple, easy-to-understand language.
               </Text>
               <View style={st.aboutFeatures}>
                 {[
@@ -312,7 +312,7 @@ export default function HomeScreen({ navigation }) {
           <View style={[st.section, { marginBottom: 20 }]}>
             <LinearGradient colors={GRADIENTS.accentSoft} style={st.footerCard}>
               <Ionicons name="heart-outline" size={22} color={COLORS.accentLight} />
-              <Text style={st.footerText}>Every child deserves to learn.{'\n'}<Text style={{ color: COLORS.accentLight, fontWeight: '700' }}>You are doing great!</Text></Text>
+              <Text style={st.footerText}>Everyone deserves to learn.{'\n'}<Text style={{ color: COLORS.accentLight, fontWeight: '700' }}>Keep going, you are doing great!</Text></Text>
             </LinearGradient>
             <View style={st.creditWrap}>
               <Ionicons name="code-slash-outline" size={14} color={COLORS.textMuted} />

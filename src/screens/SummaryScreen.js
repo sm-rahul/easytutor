@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { AIContext } from '../contexts/AIContext';
 import GradientButton from '../components/GradientButton';
 import { COLORS, GRADIENTS, SPACING, rs, ms } from '../constants/theme';
+import { downloadPdf } from '../utils/downloadPdf';
 import { common, header as headerStyles, summary as styles, solution as solutionStyles } from '../styles/styles';
 
 // Badge config for each content type
@@ -29,6 +30,7 @@ export default function SummaryScreen({ navigation }) {
   const [saved, setSaved] = useState(false);
   const [simplifying, setSimplifying] = useState(false);
   const [simplified, setSimplified] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   // Staggered card animations (8 slots to cover steps + answer cards)
   const anims = useRef([...Array(8)].map(() => ({
@@ -71,6 +73,12 @@ export default function SummaryScreen({ navigation }) {
       }
     }
     setSimplifying(false);
+  };
+
+  const handleDownloadPdf = async () => {
+    setDownloading(true);
+    await downloadPdf(analysisResult);
+    setDownloading(false);
   };
 
   const handleScanAnother = () => {
@@ -298,6 +306,17 @@ export default function SummaryScreen({ navigation }) {
             <Text style={{ fontSize: ms(13), color: COLORS.success, fontWeight: '600' }}>Simplified!</Text>
           </View>
         )}
+
+        {/* Download PDF */}
+        <Animated.View style={{ opacity: anims[actionsIndex].opacity, transform: [{ translateY: anims[actionsIndex].translateY }], marginBottom: rs(4) }}>
+          <GradientButton
+            title={downloading ? 'Generating PDF...' : 'Download PDF'}
+            onPress={handleDownloadPdf}
+            loading={downloading}
+            gradient={GRADIENTS.blue}
+            icon={<Ionicons name="download-outline" size={18} color={COLORS.white} />}
+          />
+        </Animated.View>
 
         {/* Actions */}
         <Animated.View style={[styles.actions, { opacity: anims[actionsIndex].opacity, transform: [{ translateY: anims[actionsIndex].translateY }] }]}>

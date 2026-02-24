@@ -68,7 +68,7 @@ export default function RegisterScreen({ navigation }) {
             <View style={s.header}>
               <AppLogo size={rs(68)} />
               <Text style={s.title}>Create Account</Text>
-              <Text style={s.sub}>Start your child's learning journey</Text>
+              <Text style={s.sub}>Start your learning journey</Text>
             </View>
 
             {/* Step indicator */}

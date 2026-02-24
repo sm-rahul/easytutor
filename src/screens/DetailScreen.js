@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { AIContext } from '../contexts/AIContext';
 import GradientButton from '../components/GradientButton';
 import { COLORS, GRADIENTS, SPACING, rs, ms } from '../constants/theme';
+import { downloadPdf } from '../utils/downloadPdf';
 import { common, header as headerStyles, summary as summaryStyles, detail as styles, solution as solutionStyles } from '../styles/styles';
 
 // Badge config for each content type
@@ -29,6 +30,7 @@ export default function DetailScreen({ route, navigation }) {
   const { removeHistoryItem, simplifyResult } = useContext(AIContext);
   const [simplifying, setSimplifying] = useState(false);
   const [simplified, setSimplified] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [currentResult, setCurrentResult] = useState(item.result || {});
 
   const { summary, visualExplanation, realWorldExamples, keyWords, type, solutionSteps, finalAnswer } = currentResult;
@@ -72,6 +74,12 @@ export default function DetailScreen({ route, navigation }) {
       }
     }
     setSimplifying(false);
+  };
+
+  const handleDownloadPdf = async () => {
+    setDownloading(true);
+    await downloadPdf(currentResult);
+    setDownloading(false);
   };
 
   const handleDelete = () => {
@@ -298,6 +306,17 @@ export default function DetailScreen({ route, navigation }) {
             <Text style={{ fontSize: ms(13), color: COLORS.success, fontWeight: '600' }}>Simplified!</Text>
           </View>
         )}
+
+        {/* Download PDF */}
+        <View style={{ marginBottom: rs(4) }}>
+          <GradientButton
+            title={downloading ? 'Generating PDF...' : 'Download PDF'}
+            onPress={handleDownloadPdf}
+            loading={downloading}
+            gradient={GRADIENTS.blue}
+            icon={<Ionicons name="download-outline" size={18} color={COLORS.white} />}
+          />
+        </View>
 
         {/* Actions */}
         <View style={summaryStyles.actions}>

@@ -65,7 +65,7 @@ export default function WelcomeScreen({ navigation }) {
   const features = [
     { icon: 'scan-outline', label: 'Scan any text', desc: 'Point camera at any text to learn', color: COLORS.accent },
     { icon: 'flash-outline', label: 'Instant AI summary', desc: 'Simple explanations in seconds', color: COLORS.accentPink },
-    { icon: 'people-outline', label: 'Parent friendly', desc: 'Made for parents guiding kids', color: COLORS.cyan },
+    { icon: 'people-outline', label: 'For everyone', desc: 'Students, parents & learners', color: COLORS.cyan },
   ];
 
   return (
@@ -84,7 +84,7 @@ export default function WelcomeScreen({ navigation }) {
       {/* Title */}
       <Animated.View style={[s.titleBlock, { opacity: titleOp, transform: [{ translateY: titleY }] }]}>
         <Text style={s.title}>Easy<Text style={s.titleAccent}>Tutor</Text></Text>
-        <Text style={s.tagline}>AI-Powered Learning for Kids</Text>
+        <Text style={s.tagline}>AI-Powered Learning Made Easy</Text>
       </Animated.View>
 
       {/* Feature cards */}
