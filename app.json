@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "KidTutor",
+    "slug": "kidtutor",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./src/img/favicon.png",
+    "splash": {
+      "backgroundColor": "#0D0F1A"
+    },
+    "web": {
+      "favicon": "./src/img/favicon.png"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.kidtutor.app"
+    },
+    "android": {
+      "package": "com.kidtutor.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./src/img/favicon.png",
+        "backgroundColor": "#0D0F1A"
+      },
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "extra": {
+      "eas": {
+        "projectId": "d000baf5-4a36-4cea-aa56-de12f870d2e6"
+      }
+    },
+    "owner": "rahul881591"
+  }
+}

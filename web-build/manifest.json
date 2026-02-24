@@ -1,0 +1,7 @@
+{
+  "display": "standalone",
+  "lang": "en",
+  "name": "KidTutor",
+  "short_name": "KidTutor",
+  "start_url": "/?utm_source=web_app_manifest"
+}

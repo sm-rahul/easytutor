@@ -1,0 +1,9 @@
+node_modules/
+.expo/
+.expo-shared/
+yarn-error.log
+npm-debug.log
+dist/
+*.keystore
+.env
+backend/.env
