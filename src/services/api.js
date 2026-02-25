@@ -88,3 +88,24 @@ export async function apiSimplify({ summary, visualExplanation, realWorldExample
 export async function apiGetStats(userId) {
   return request(`/stats/${userId}`);
 }
+
+// ============================================================
+// GOALS & READING TIME
+// ============================================================
+export async function apiGetGoals(userId) {
+  return request(`/goals/${userId}`);
+}
+
+export async function apiUpdateGoals(userId, { dailyLessons, dailyMinutes }) {
+  return request(`/goals/${userId}`, {
+    method: 'PUT',
+    body: { dailyLessons, dailyMinutes },
+  });
+}
+
+export async function apiLogReadingTime(userId, seconds) {
+  return request(`/reading-time/${userId}`, {
+    method: 'POST',
+    body: { seconds },
+  });
+}

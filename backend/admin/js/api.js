@@ -15,7 +15,7 @@ async function adminFetch(url, options = {}) {
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
 
-  if (res.status === 401) {
+  if (res.status === 401 && !url.includes('/login')) {
     clearToken();
     window.location.href = '/admin/index.html';
     throw new Error('Unauthorized');

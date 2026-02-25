@@ -27,11 +27,21 @@ const TYPE_CONFIG = {
 
 export default function DetailScreen({ route, navigation }) {
   const { item } = route.params;
-  const { removeHistoryItem, simplifyResult } = useContext(AIContext);
+  const { removeHistoryItem, simplifyResult, logReadingTime } = useContext(AIContext);
   const [simplifying, setSimplifying] = useState(false);
   const [simplified, setSimplified] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [currentResult, setCurrentResult] = useState(item.result || {});
+  const readingStartTime = useRef(Date.now());
+
+  // Track reading time when leaving screen
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', () => {
+      const seconds = Math.round((Date.now() - readingStartTime.current) / 1000);
+      if (seconds >= 3) logReadingTime(seconds);
+    });
+    return unsubscribe;
+  }, [navigation, logReadingTime]);
 
   const { summary, visualExplanation, realWorldExamples, keyWords, type, solutionSteps, finalAnswer } = currentResult;
   const isSolvable = type === 'math' || type === 'aptitude';

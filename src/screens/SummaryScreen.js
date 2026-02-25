@@ -26,11 +26,21 @@ const TYPE_CONFIG = {
 };
 
 export default function SummaryScreen({ navigation }) {
-  const { analysisResult, setAnalysisResult, image, saveResult, simplifyResult } = useContext(AIContext);
+  const { analysisResult, setAnalysisResult, image, saveResult, simplifyResult, logReadingTime } = useContext(AIContext);
   const [saved, setSaved] = useState(false);
   const [simplifying, setSimplifying] = useState(false);
   const [simplified, setSimplified] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const readingStartTime = useRef(Date.now());
+
+  // Track reading time when leaving screen
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', () => {
+      const seconds = Math.round((Date.now() - readingStartTime.current) / 1000);
+      if (seconds >= 3) logReadingTime(seconds);
+    });
+    return unsubscribe;
+  }, [navigation, logReadingTime]);
 
   // Staggered card animations (8 slots to cover steps + answer cards)
   const anims = useRef([...Array(8)].map(() => ({

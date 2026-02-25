@@ -616,6 +616,102 @@ Please rewrite this in the simplest possible way so anyone can understand.`;
 });
 
 // ============================================================
+// GOALS & READING TIME ROUTES
+// ============================================================
+
+// Get daily goals + today's progress
+app.get('/api/goals/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const [rows] = await pool.query(
+      `SELECT daily_goal_lessons, daily_goal_minutes,
+              IF(last_reading_date = CURDATE(), today_reading_seconds, 0) AS today_reading_seconds,
+              IF(last_reading_date = CURDATE(), today_lessons_completed, 0) AS today_lessons_completed,
+              total_reading_seconds
+       FROM stats WHERE user_id = ?`,
+      [userId]
+    );
+
+    if (rows.length === 0) {
+      return res.json({
+        success: true,
+        goals: {
+          dailyLessons: 3, dailyMinutes: 15,
+          todayLessons: 0, todayReadingMinutes: 0, totalReadingMinutes: 0,
+        },
+      });
+    }
+
+    const row = rows[0];
+    res.json({
+      success: true,
+      goals: {
+        dailyLessons: row.daily_goal_lessons || 3,
+        dailyMinutes: row.daily_goal_minutes || 15,
+        todayLessons: row.today_lessons_completed || 0,
+        todayReadingMinutes: Math.round((row.today_reading_seconds || 0) / 60),
+        totalReadingMinutes: Math.round((row.total_reading_seconds || 0) / 60),
+      },
+    });
+  } catch (error) {
+    console.error('Get goals error:', error);
+    res.status(500).json({ success: false, error: 'Could not fetch goals' });
+  }
+});
+
+// Update daily goal settings
+app.put('/api/goals/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { dailyLessons, dailyMinutes } = req.body;
+
+    await pool.query(
+      `INSERT INTO stats (user_id, total_scans, daily_goal_lessons, daily_goal_minutes)
+       VALUES (?, 0, ?, ?)
+       ON DUPLICATE KEY UPDATE daily_goal_lessons = VALUES(daily_goal_lessons), daily_goal_minutes = VALUES(daily_goal_minutes)`,
+      [userId, dailyLessons || 3, dailyMinutes || 15]
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Update goals error:', error);
+    res.status(500).json({ success: false, error: 'Could not update goals' });
+  }
+});
+
+// Log reading time (called when leaving a reading screen)
+app.post('/api/reading-time/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { seconds } = req.body;
+
+    if (!seconds || seconds < 3) {
+      return res.json({ success: true }); // ignore very short visits
+    }
+
+    // Ensure stats row exists
+    await pool.query(
+      `INSERT IGNORE INTO stats (user_id, total_scans) VALUES (?, 0)`,
+      [userId]
+    );
+    await pool.query(
+      `UPDATE stats SET
+        today_reading_seconds = IF(last_reading_date = CURDATE(), today_reading_seconds + ?, ?),
+        today_lessons_completed = IF(last_reading_date = CURDATE(), today_lessons_completed + 1, 1),
+        last_reading_date = CURDATE(),
+        total_reading_seconds = total_reading_seconds + ?
+      WHERE user_id = ?`,
+      [seconds, seconds, seconds, userId]
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Log reading time error:', error);
+    res.status(500).json({ success: false, error: 'Could not log reading time' });
+  }
+});
+
+// ============================================================
 // ADMIN PANEL ROUTES
 // ============================================================
 
@@ -791,7 +887,7 @@ app.get('/api/admin/history', requireAdmin, async (req, res) => {
       `SELECT COUNT(*) as total FROM history h JOIN users u ON h.user_id = u.id ${where}`, params
     );
     const [rows] = await pool.query(
-      `SELECT h.id, h.user_id, h.extracted_text, h.summary, h.visual_explanation,
+      `SELECT h.id, h.user_id, h.image_uri, h.extracted_text, h.summary, h.visual_explanation,
               h.real_world_examples, h.key_words, h.created_at,
               u.name as user_name, u.email as user_email
        FROM history h JOIN users u ON h.user_id = u.id ${where}
@@ -854,6 +950,22 @@ async function migrate() {
     }
   } catch (err) {
     console.error('Migration (math columns) error:', err.message);
+  }
+
+  // Migration: add daily goals & reading time columns to stats
+  try {
+    const [goalCols] = await pool.query("SHOW COLUMNS FROM stats LIKE 'daily_goal_lessons'");
+    if (goalCols.length === 0) {
+      await pool.query("ALTER TABLE stats ADD COLUMN daily_goal_lessons INT DEFAULT 3");
+      await pool.query("ALTER TABLE stats ADD COLUMN daily_goal_minutes INT DEFAULT 15");
+      await pool.query("ALTER TABLE stats ADD COLUMN today_reading_seconds INT DEFAULT 0");
+      await pool.query("ALTER TABLE stats ADD COLUMN total_reading_seconds INT DEFAULT 0");
+      await pool.query("ALTER TABLE stats ADD COLUMN today_lessons_completed INT DEFAULT 0");
+      await pool.query("ALTER TABLE stats ADD COLUMN last_reading_date DATE DEFAULT NULL");
+      console.log('Migration: added daily goals and reading time columns');
+    }
+  } catch (err) {
+    console.error('Migration (goals columns) error:', err.message);
   }
 }
 

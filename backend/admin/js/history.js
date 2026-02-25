@@ -4,24 +4,39 @@ checkAuth();
 let currentPage = 1;
 let currentSearch = '';
 let totalPages = 1;
+const imageCache = {}; // Store image URIs by history ID
 
 async function loadHistory() {
   const tbody = document.getElementById('historyBody');
-  tbody.innerHTML = '<tr><td colspan="5" class="loading"><div class="spinner"></div> Loading...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="6" class="loading"><div class="spinner"></div> Loading...</td></tr>';
 
   try {
     const res = await getHistory(currentPage, 20, currentSearch);
     totalPages = res.pagination.pages || 1;
 
     if (res.data.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" class="text-muted" style="text-align:center;padding:30px;">No lessons found</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="text-muted" style="text-align:center;padding:30px;">No lessons found</td></tr>';
       updatePagination(res.pagination);
       return;
     }
 
-    tbody.innerHTML = res.data.map(h => `
-      <tr style="cursor:pointer;" onclick="showDetail(${h.id}, this)" data-item='${escapeAttr(JSON.stringify(h))}'>
+    // Cache images by ID
+    res.data.forEach(h => { if (h.image_uri) imageCache[h.id] = h.image_uri; });
+
+    tbody.innerHTML = res.data.map(h => {
+      // Store data without image_uri to keep data-item attribute small
+      const itemData = { ...h };
+      const imageUri = h.image_uri || '';
+      delete itemData.image_uri;
+      return `
+      <tr style="cursor:pointer;" onclick="showDetail(${h.id}, this)" data-item='${escapeAttr(JSON.stringify(itemData))}' data-image='${imageUri ? "1" : "0"}'>
         <td class="text-muted">#${h.id}</td>
+        <td>
+          ${imageUri
+            ? `<img src="${imageUri}" style="width:50px;height:50px;object-fit:cover;border-radius:6px;border:1px solid var(--border);" loading="lazy" alt="scan">`
+            : `<div style="width:50px;height:50px;border-radius:6px;background:var(--bg-tertiary);display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:11px;">No img</div>`
+          }
+        </td>
         <td>
           <div style="display:flex;align-items:center;gap:10px;">
             <div class="avatar-cell">${(h.user_name || '?').charAt(0).toUpperCase()}</div>
@@ -37,12 +52,12 @@ async function loadHistory() {
           <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();confirmDelete(${h.id})">Delete</button>
         </td>
       </tr>
-    `).join('');
+    `;}).join('');
 
     updatePagination(res.pagination);
   } catch (err) {
     console.error('Load history error:', err);
-    tbody.innerHTML = '<tr><td colspan="5" class="text-danger" style="text-align:center;padding:30px;">Failed to load history</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="text-danger" style="text-align:center;padding:30px;">Failed to load history</td></tr>';
   }
 }
 
@@ -85,7 +100,16 @@ function showDetail(id, row) {
       try { keywords = JSON.parse(keywords); } catch(e) { keywords = []; }
     }
 
+    const cachedImage = imageCache[id];
     document.getElementById('detailContent').innerHTML = `
+      ${cachedImage ? `
+        <div class="detail-section">
+          <div class="detail-label">Scanned Image</div>
+          <div class="detail-value" style="text-align:center;">
+            <img src="${cachedImage}" style="max-width:100%;max-height:300px;border-radius:8px;border:1px solid var(--border);cursor:pointer;" onclick="window.open(this.src,'_blank')" title="Click to open full size" alt="scanned image">
+          </div>
+        </div>
+      ` : ''}
       <div class="detail-section">
         <div class="detail-label">User</div>
         <div class="detail-value">${escapeHtml(item.user_name)} (${escapeHtml(item.user_email)})</div>

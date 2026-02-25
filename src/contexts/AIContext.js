@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect, useCallback, useContext } from 'react';
 import { analyzeImage } from '../services/openai';
-import { apiGetHistory, apiSaveHistory, apiDeleteHistory, apiGetStats, apiSimplify } from '../services/api';
+import { apiGetHistory, apiSaveHistory, apiDeleteHistory, apiGetStats, apiSimplify, apiGetGoals, apiUpdateGoals, apiLogReadingTime } from '../services/api';
 import { AuthContext } from './AuthContext';
 
 export const AIContext = createContext({});
@@ -12,6 +12,20 @@ export const AIProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState([]);
   const [stats, setStats] = useState({ totalScans: 0, totalSaved: 0, todayScans: 0 });
+  const [goals, setGoals] = useState({
+    dailyLessons: 3, dailyMinutes: 15,
+    todayLessons: 0, todayReadingMinutes: 0, totalReadingMinutes: 0,
+  });
+
+  const refreshGoals = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const res = await apiGetGoals(user.id);
+      if (res.success) setGoals(res.goals);
+    } catch (error) {
+      console.error('Goals refresh error:', error);
+    }
+  }, [user?.id]);
 
   const refreshHistory = useCallback(async () => {
     if (!user?.id) return;
@@ -32,11 +46,13 @@ export const AIProvider = ({ children }) => {
   useEffect(() => {
     if (user?.id) {
       refreshHistory();
+      refreshGoals();
     } else {
       setHistory([]);
       setStats({ totalScans: 0, totalSaved: 0, todayScans: 0 });
+      setGoals({ dailyLessons: 3, dailyMinutes: 15, todayLessons: 0, todayReadingMinutes: 0, totalReadingMinutes: 0 });
     }
-  }, [user?.id, refreshHistory]);
+  }, [user?.id, refreshHistory, refreshGoals]);
 
   const processImage = async (uri) => {
     setLoading(true);
@@ -103,6 +119,33 @@ export const AIProvider = ({ children }) => {
     }
   };
 
+  const updateDailyGoals = async (dailyLessons, dailyMinutes) => {
+    if (!user?.id) return false;
+    try {
+      const res = await apiUpdateGoals(user.id, { dailyLessons, dailyMinutes });
+      if (res.success) {
+        setGoals(prev => ({ ...prev, dailyLessons, dailyMinutes }));
+        await refreshGoals();
+        return true;
+      }
+      console.error('Update goals failed:', res.error);
+      return false;
+    } catch (error) {
+      console.error('Update goals error:', error);
+      return false;
+    }
+  };
+
+  const logReadingTime = async (seconds) => {
+    if (!user?.id || seconds < 3) return;
+    try {
+      await apiLogReadingTime(user.id, Math.round(seconds));
+      await refreshGoals();
+    } catch (error) {
+      console.error('Log reading time error:', error);
+    }
+  };
+
   return (
     <AIContext.Provider
       value={{
@@ -113,11 +156,15 @@ export const AIProvider = ({ children }) => {
         loading,
         history,
         stats,
+        goals,
         processImage,
         saveResult,
         simplifyResult,
         removeHistoryItem,
         refreshHistory,
+        refreshGoals,
+        updateDailyGoals,
+        logReadingTime,
       }}
     >
       {children}
