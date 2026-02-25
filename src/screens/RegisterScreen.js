@@ -83,7 +83,7 @@ export default function RegisterScreen({ navigation }) {
             </View>
             <View style={s.stepLabels}>
               <Text style={[s.stepLabel, step === 1 && s.stepLabelActive]}>Your details</Text>
-              <Text style={[s.stepLabel, step === 2 && s.stepLabelActive]}>Child info</Text>
+              <Text style={[s.stepLabel, step === 2 && s.stepLabelActive]}>Personal info</Text>
             </View>
 
             {/* Error */}
