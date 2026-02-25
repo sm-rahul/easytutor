@@ -23,8 +23,9 @@ export default function QuizScreen({ navigation, route }) {
   const [submitting, setSubmitting] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
-  const startTime = useRef(Date.now());
+  const startTime = useRef(null);
   const timerRef = useRef(null);
+  const quizReady = !quizLoading && currentQuiz && currentQuestions.length > 0;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const optionAnims = useRef([0, 1, 2, 3].map(() => new Animated.Value(0))).current;
@@ -36,13 +37,19 @@ export default function QuizScreen({ navigation, route }) {
     }
   }, []);
 
-  // Timer
+  // Timer — only start when quiz is ready (loading complete)
   useEffect(() => {
-    timerRef.current = setInterval(() => {
-      setElapsedSeconds(Math.round((Date.now() - startTime.current) / 1000));
-    }, 1000);
-    return () => clearInterval(timerRef.current);
-  }, []);
+    if (quizReady && !startTime.current) {
+      startTime.current = Date.now();
+      setElapsedSeconds(0);
+      timerRef.current = setInterval(() => {
+        setElapsedSeconds(Math.round((Date.now() - startTime.current) / 1000));
+      }, 1000);
+    }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [quizReady]);
 
   // Animate question entry
   useEffect(() => {
@@ -92,7 +99,8 @@ export default function QuizScreen({ navigation, route }) {
 
   const handleSubmit = async () => {
     setSubmitting(true);
-    const timeTaken = Math.round((Date.now() - startTime.current) / 1000);
+    clearInterval(timerRef.current);
+    const timeTaken = startTime.current ? Math.round((Date.now() - startTime.current) / 1000) : elapsedSeconds;
     const answers = currentQuestions.map(q => ({
       questionId: q.id,
       selected: selectedAnswers[q.id] !== undefined ? selectedAnswers[q.id] : -1,
@@ -143,7 +151,7 @@ export default function QuizScreen({ navigation, route }) {
             <Ionicons name="close" size={rs(20)} color={COLORS.textSecondary} />
           </TouchableOpacity>
           <View style={s.headerCenter}>
-            <Text style={s.headerTitle}>{currentQuiz.title}</Text>
+            <Text style={s.headerTitle} numberOfLines={1}>{currentQuiz.title}</Text>
             <Text style={s.headerSub}>Question {currentIndex + 1} of {totalQ}</Text>
           </View>
           <View style={s.timerBadge}>
@@ -289,7 +297,7 @@ const s = StyleSheet.create({
     backgroundColor: COLORS.bgCard, justifyContent: 'center', alignItems: 'center',
     borderWidth: 1, borderColor: COLORS.border,
   },
-  headerCenter: { flex: 1, marginLeft: rs(12) },
+  headerCenter: { flex: 1, marginLeft: rs(12), marginRight: rs(10) },
   headerTitle: { ...FONTS.h3, color: COLORS.textPrimary },
   headerSub: { ...FONTS.caption, color: COLORS.textMuted, marginTop: rs(2) },
   timerBadge: {
