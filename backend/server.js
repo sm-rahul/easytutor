@@ -457,6 +457,18 @@ RULES FOR MATH/APTITUDE SOLUTIONS:
 - For word problems: compute the final numerical answer with units
 - For geometry: calculate the exact measurement (area, perimeter, angle, etc.)
 
+⚠️ MANDATORY SELF-VERIFICATION CHECKLIST (DO THIS BEFORE RESPONDING):
+1. Re-read the image one more time — did you copy the numbers and text EXACTLY as written?
+2. For math: re-compute the final answer from scratch using a different method if possible. Do both results match?
+3. For math: substitute your final answer back into the original equation/problem. Does it satisfy the condition?
+4. For arithmetic: re-add, re-multiply, re-divide every calculation. A single arithmetic mistake ruins everything.
+5. For word problems: does your answer make logical sense? (e.g., a negative age, or a speed of 10000 km/h is likely wrong)
+6. For fractions/decimals: did you handle order of operations (BODMAS/PEMDAS) correctly?
+7. For geometry: did you use the right formula? (area of triangle = ½ × base × height, NOT base × height)
+8. If the image shows multiple-choice options, verify that YOUR computed answer matches one of them. If it doesn't, re-solve — you likely made an error.
+9. For percentages: percentage OF a number = (percentage/100) × number. Do NOT confuse "percent of" with "percent increase/decrease".
+10. FINAL CHECK: Read your entire solution once more. Is every step logically connected? Does step N correctly follow from step N-1?
+
 Keep language simple. Imagine you are talking to a young student. Use words they would understand.
 
 IMPORTANT: Always respond in valid JSON format exactly matching the structure above. NEVER leave a problem unsolved.`;
@@ -503,12 +515,12 @@ app.post('/api/analyze', async (req, res) => {
               },
               {
                 type: 'text',
-                text: 'Read every word in this image very carefully. If it contains a math or aptitude problem, solve it step by step with the correct answer. If it is text content, explain EVERYTHING on the page in detail with paragraphs and key points — do not skip any section. Make it easy to understand.',
+                text: 'Read every word in this image very carefully. If it contains a math or aptitude problem, solve it step by step and give the CORRECT final answer — double-check your arithmetic by re-computing. If it is text content, explain EVERYTHING on the page in detail with paragraphs and key points — do not skip any section. ACCURACY IS CRITICAL: verify every calculation before responding. Students trust this answer.',
               },
             ],
           },
         ],
-        max_tokens: 3500,
+        max_tokens: 4096,
         temperature: 0,
         seed: 42,
       }),
@@ -948,8 +960,10 @@ FOR MATH/APTITUDE CONTENT:
 - For algebra: use different variables or coefficients
 - For word problems: change the scenario but keep the same math concept
 - For aptitude: create parallel reasoning problems
-- Each question's correct answer must be verified — double-check your math
-- Show the working/reasoning in the explanation field
+- EVERY question's correct answer MUST be 100% verified — solve each problem yourself step-by-step before finalizing
+- Show the complete working/reasoning in the explanation field
+- The explanation MUST show the full calculation so the student can follow along
+- NEVER guess or approximate — compute the exact answer for every question
 
 DIFFICULTY DISTRIBUTION:
 - 2 easy questions (direct recall or simple application)
@@ -974,9 +988,25 @@ RESPOND IN VALID JSON:
 IMPORTANT:
 - correctIndex is 0-based (0 = A, 1 = B, 2 = C, 3 = D)
 - Randomize the position of the correct answer — do NOT always put it in position A
-- For math: put the actual computed answer as an option, with plausible distractors
+- For math: put the actual computed answer as an option, with plausible distractors (common mistakes)
 - Explanations should be educational — teach the student something
-- NEVER generate questions about things NOT in the source content`;
+- NEVER generate questions about things NOT in the source content
+
+⚠️ MANDATORY ACCURACY CHECKLIST — DO THIS FOR EVERY QUESTION:
+1. SOLVE each math question yourself step-by-step BEFORE writing the options.
+2. Verify: does the option at correctIndex EXACTLY match your computed answer?
+3. For each wrong option: confirm it is actually WRONG by checking it against the problem.
+4. Re-read the question text — is it clear and unambiguous? Could a student misinterpret it?
+5. For word problems: does the correct answer have the right units and make logical sense?
+6. For text questions: is the correct answer factually accurate based ONLY on the source content?
+7. Double-check: correctIndex points to the RIGHT option in the options array (0=first, 1=second, 2=third, 3=fourth).
+8. COMMON MISTAKES TO AVOID:
+   - Setting correctIndex to 0 but putting the correct answer at position 1 (or vice versa)
+   - Arithmetic errors in distractors that accidentally equal the correct answer
+   - Questions where two options could both be correct
+   - Forgetting to carry a negative sign, forgetting to convert units, or dividing instead of multiplying
+9. If you are not 100% certain an answer is correct, re-solve it from scratch before including it.
+10. Every explanation must show the COMPLETE solution so students learn even from wrong answers.`;
 
 // Generate quiz from analysis content
 app.post('/api/quiz/generate', async (req, res) => {
@@ -994,7 +1024,7 @@ Key Words: ${(keyWords || []).join(', ')}
 ${type === 'math' || type === 'aptitude' ? `Solution Steps: ${JSON.stringify(solutionSteps || [])}
 Final Answer: ${finalAnswer || ''}` : ''}
 
-Generate a quiz based on this content.`;
+Generate a quiz based on this content. CRITICAL: For every math/aptitude question, solve it completely yourself first, then verify correctIndex points to the correct option. Every answer MUST be 100% accurate — students trust this app.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -1008,8 +1038,8 @@ Generate a quiz based on this content.`;
           { role: 'system', content: QUIZ_PROMPT },
           { role: 'user', content: userMessage },
         ],
-        max_tokens: 3000,
-        temperature: 0.7,
+        max_tokens: 4000,
+        temperature: 0.3,
       }),
     });
 
@@ -1022,6 +1052,25 @@ Generate a quiz based on this content.`;
     const content = data.choices[0].message.content;
     const jsonStr = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     const quizData = JSON.parse(jsonStr);
+
+    // Validate quiz data integrity
+    if (!quizData.questions || !Array.isArray(quizData.questions) || quizData.questions.length === 0) {
+      return res.status(500).json({ success: false, error: 'Quiz generation failed — no questions returned' });
+    }
+
+    // Validate each question has valid correctIndex
+    for (let i = 0; i < quizData.questions.length; i++) {
+      const q = quizData.questions[i];
+      if (!q.options || q.options.length !== 4) {
+        return res.status(500).json({ success: false, error: `Question ${i + 1} does not have exactly 4 options` });
+      }
+      if (q.correctIndex === undefined || q.correctIndex < 0 || q.correctIndex > 3) {
+        return res.status(500).json({ success: false, error: `Question ${i + 1} has invalid correctIndex: ${q.correctIndex}` });
+      }
+      if (!q.explanation || q.explanation.trim().length < 10) {
+        q.explanation = q.explanation || 'The correct answer is option ' + ['A', 'B', 'C', 'D'][q.correctIndex] + '.';
+      }
+    }
 
     const title = quizData.title || `Quiz: ${(keyWords || []).slice(0, 3).join(', ')}`;
     const [quizResult] = await pool.query(
