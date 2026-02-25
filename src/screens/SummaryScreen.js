@@ -28,6 +28,7 @@ const TYPE_CONFIG = {
 export default function SummaryScreen({ navigation }) {
   const { analysisResult, setAnalysisResult, image, saveResult, simplifyResult, logReadingTime } = useContext(AIContext);
   const [saved, setSaved] = useState(false);
+  const [savedItemId, setSavedItemId] = useState(null);
   const [simplifying, setSimplifying] = useState(false);
   const [simplified, setSimplified] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -62,11 +63,25 @@ export default function SummaryScreen({ navigation }) {
     const item = await saveResult();
     if (item) {
       setSaved(true);
+      setSavedItemId(item.id);
       if (Platform.OS === 'web') {
         window.alert('This lesson has been saved to your history.');
       } else {
         Alert.alert('Saved!', 'This lesson has been saved to your history.');
       }
+    }
+    return item;
+  };
+
+  const handlePracticeQuiz = async () => {
+    let historyId = savedItemId;
+    // Auto-save first if not saved
+    if (!saved) {
+      const item = await handleSave();
+      if (item) historyId = item.id;
+    }
+    if (analysisResult) {
+      navigation.navigate('Quiz', { historyId, analysisResult });
     }
   };
 
@@ -325,6 +340,16 @@ export default function SummaryScreen({ navigation }) {
             loading={downloading}
             gradient={GRADIENTS.blue}
             icon={<Ionicons name="download-outline" size={18} color={COLORS.white} />}
+          />
+        </Animated.View>
+
+        {/* Practice Quiz */}
+        <Animated.View style={{ opacity: anims[actionsIndex].opacity, transform: [{ translateY: anims[actionsIndex].translateY }], marginBottom: rs(4) }}>
+          <GradientButton
+            title="Practice Quiz"
+            onPress={handlePracticeQuiz}
+            gradient={GRADIENTS.purple}
+            icon={<Ionicons name="school-outline" size={18} color={COLORS.white} />}
           />
         </Animated.View>
 

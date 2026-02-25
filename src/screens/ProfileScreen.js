@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../contexts/AuthContext';
 import { AIContext } from '../contexts/AIContext';
+import { QuizContext } from '../contexts/QuizContext';
 import { IconBadge, GlowIcon } from '../components/AppIcon';
 import { COLORS, GRADIENTS, SPACING, RADIUS, FONTS, SHADOWS, rs, ms } from '../constants/theme';
 
@@ -23,6 +24,7 @@ const formatTime = (minutes) => {
 export default function ProfileScreen() {
   const { user, logout } = useContext(AuthContext);
   const { stats, goals, updateDailyGoals, refreshGoals } = useContext(AIContext);
+  const { performance, refreshPerformance } = useContext(QuizContext);
 
   const [editVisible, setEditVisible] = useState(false);
   const [editLessons, setEditLessons] = useState('');
@@ -42,9 +44,10 @@ export default function ProfileScreen() {
     ]).start();
   }, []);
 
-  // Refresh goals when screen is focused
+  // Refresh goals and quiz performance when screen is focused
   useEffect(() => {
     refreshGoals();
+    refreshPerformance();
   }, []);
 
   const handleLogout = () => {
@@ -217,6 +220,111 @@ export default function ProfileScreen() {
             </View>
           </View>
 
+          {/* Quiz Performance Section */}
+          {performance && performance.overall.totalAttempts > 0 && (
+            <View style={s.goalSection}>
+              <Text style={s.secTitle}>Quiz Performance</Text>
+              <View style={s.quizStatsRow}>
+                <View style={s.quizStatCard}>
+                  <IconBadge name="school" size={rs(16)} gradient={GRADIENTS.purple} bgSize={rs(32)} />
+                  <Text style={s.quizStatNum}>{performance.overall.totalAttempts}</Text>
+                  <Text style={s.quizStatLabel}>Quizzes</Text>
+                </View>
+                <View style={s.quizStatCard}>
+                  <IconBadge name="trending-up" size={rs(16)} gradient={GRADIENTS.accent} bgSize={rs(32)} />
+                  <Text style={s.quizStatNum}>{Math.round(performance.overall.avgScore)}%</Text>
+                  <Text style={s.quizStatLabel}>Avg Score</Text>
+                </View>
+                <View style={s.quizStatCard}>
+                  <IconBadge name="trophy" size={rs(16)} gradient={['#F59E0B', '#FBBF24']} bgSize={rs(32)} />
+                  <Text style={s.quizStatNum}>{Math.round(performance.overall.bestScore)}%</Text>
+                  <Text style={s.quizStatLabel}>Best</Text>
+                </View>
+              </View>
+
+              {/* By content type */}
+              {performance.byContentType.length > 0 && (
+                <View style={s.quizTypeRow}>
+                  {performance.byContentType.map((t, i) => (
+                    <View key={i} style={s.quizTypeChip}>
+                      <Text style={s.quizTypeLabel}>{t.contentType}</Text>
+                      <Text style={s.quizTypeScore}>{Math.round(t.avgScore)}%</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {/* Recent trend chart */}
+              {performance.recentTrend.length > 1 && (
+                <View style={s.trendContainer}>
+                  <View style={s.trendHeader}>
+                    <Ionicons name="analytics-outline" size={rs(16)} color={COLORS.accent} />
+                    <Text style={s.trendLabel}>Recent Trend</Text>
+                  </View>
+
+                  {/* Grid lines */}
+                  <View style={s.trendChart}>
+                    <View style={s.trendGridLines}>
+                      {[100, 75, 50, 25, 0].map((val) => (
+                        <View key={val} style={s.trendGridRow}>
+                          <Text style={s.trendGridText}>{val}</Text>
+                          <View style={s.trendGridLine} />
+                        </View>
+                      ))}
+                    </View>
+
+                    {/* Bars area */}
+                    <View style={s.trendBarsArea}>
+                      <View style={s.trendBars}>
+                        {performance.recentTrend.map((t, i) => {
+                          const pct = Math.round(t.percentage);
+                          const barColor = pct >= 80
+                            ? [COLORS.success, '#10B981']
+                            : pct >= 50
+                              ? [COLORS.warning, '#F59E0B']
+                              : GRADIENTS.danger;
+                          const dotColor = pct >= 80 ? COLORS.success : pct >= 50 ? COLORS.warning : COLORS.danger;
+
+                          return (
+                            <View key={i} style={s.trendBarCol}>
+                              {/* Score label on top */}
+                              <Text style={[s.trendScoreLabel, { color: dotColor }]}>{pct}%</Text>
+                              <View style={s.trendBarWrap}>
+                                <View style={[s.trendBar, { height: `${Math.max(pct, 4)}%` }]}>
+                                  <LinearGradient
+                                    colors={barColor}
+                                    start={{ x: 0, y: 1 }} end={{ x: 0, y: 0 }}
+                                    style={s.trendBarFill}
+                                  />
+                                  {/* Glowing dot on top */}
+                                  <View style={[s.trendDot, { backgroundColor: dotColor, shadowColor: dotColor }]} />
+                                </View>
+                              </View>
+                              {/* Quiz number label */}
+                              <Text style={s.trendBarLabel}>#{i + 1}</Text>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Avg line indicator */}
+                  {(() => {
+                    const avg = Math.round(performance.recentTrend.reduce((sum, t) => sum + t.percentage, 0) / performance.recentTrend.length);
+                    return (
+                      <View style={s.trendAvgRow}>
+                        <View style={s.trendAvgDash} />
+                        <Text style={s.trendAvgText}>Avg: {avg}%</Text>
+                        <View style={s.trendAvgDash} />
+                      </View>
+                    );
+                  })()}
+                </View>
+              )}
+            </View>
+          )}
+
           {/* Account details */}
           <Text style={s.secTitle}>Account Details</Text>
           {details.map((d, i) => (
@@ -345,6 +453,65 @@ const s = StyleSheet.create({
     borderRadius: RADIUS.xl, padding: rs(16), borderWidth: 1, borderColor: COLORS.border,
   },
   totalTimeValue: { fontSize: ms(18), fontWeight: '800', color: COLORS.accentLight },
+
+  // Quiz Performance
+  quizStatsRow: { flexDirection: 'row', gap: rs(8), marginBottom: rs(12) },
+  quizStatCard: {
+    flex: 1, alignItems: 'center', gap: rs(6),
+    backgroundColor: COLORS.bgCard, borderRadius: RADIUS.xl, padding: rs(14),
+    borderWidth: 1, borderColor: COLORS.border,
+  },
+  quizStatNum: { fontSize: ms(18), fontWeight: '800', color: COLORS.textPrimary },
+  quizStatLabel: { ...FONTS.caption, color: COLORS.textMuted },
+  quizTypeRow: { flexDirection: 'row', gap: rs(8), flexWrap: 'wrap', marginBottom: rs(12) },
+  quizTypeChip: {
+    flexDirection: 'row', alignItems: 'center', gap: rs(8),
+    backgroundColor: COLORS.bgCard, borderRadius: RADIUS.full,
+    paddingHorizontal: rs(14), paddingVertical: rs(8),
+    borderWidth: 1, borderColor: COLORS.border,
+  },
+  quizTypeLabel: { ...FONTS.caption, color: COLORS.textMuted, textTransform: 'capitalize' },
+  quizTypeScore: { ...FONTS.bodySmall, color: COLORS.accent, fontWeight: '700' },
+  trendContainer: {
+    backgroundColor: COLORS.bgCard, borderRadius: RADIUS.xl, padding: rs(16),
+    borderWidth: 1, borderColor: COLORS.border,
+  },
+  trendHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: rs(6), marginBottom: rs(14),
+  },
+  trendLabel: { ...FONTS.caption, color: COLORS.textMuted, fontWeight: '600' },
+  trendChart: { flexDirection: 'row' },
+  trendGridLines: { width: rs(28), justifyContent: 'space-between', marginRight: rs(4) },
+  trendGridRow: { flexDirection: 'row', alignItems: 'center', height: 0 },
+  trendGridText: { fontSize: ms(8), color: COLORS.textMuted + '80', width: rs(22), textAlign: 'right' },
+  trendGridLine: {
+    position: 'absolute', left: rs(26), right: -rs(500), height: StyleSheet.hairlineWidth,
+    backgroundColor: COLORS.border,
+  },
+  trendBarsArea: { flex: 1, height: rs(120), overflow: 'hidden' },
+  trendBars: { flexDirection: 'row', alignItems: 'flex-end', height: '100%', gap: rs(4), paddingHorizontal: rs(2) },
+  trendBarCol: { flex: 1, alignItems: 'center', height: '100%', justifyContent: 'flex-end' },
+  trendScoreLabel: { fontSize: ms(9), fontWeight: '700', marginBottom: rs(3) },
+  trendBarWrap: { width: '70%', maxWidth: rs(28), flex: 1, justifyContent: 'flex-end', alignItems: 'center' },
+  trendBar: {
+    width: '100%', borderRadius: rs(6), overflow: 'visible',
+    minHeight: rs(4), alignItems: 'center',
+  },
+  trendBarFill: {
+    ...StyleSheet.absoluteFillObject, borderRadius: rs(6),
+  },
+  trendDot: {
+    position: 'absolute', top: -rs(3), width: rs(8), height: rs(8),
+    borderRadius: rs(4), borderWidth: 1.5, borderColor: COLORS.bgCard,
+    shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.6, shadowRadius: 6, elevation: 4,
+  },
+  trendBarLabel: { fontSize: ms(8), color: COLORS.textMuted, marginTop: rs(4), fontWeight: '500' },
+  trendAvgRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: rs(8), marginTop: rs(12),
+  },
+  trendAvgDash: { flex: 1, height: 1, borderStyle: 'dashed', borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.accent + '40' },
+  trendAvgText: { ...FONTS.caption, color: COLORS.accent, fontWeight: '700' },
 
   // Account details
   detailRow: {

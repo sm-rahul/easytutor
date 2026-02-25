@@ -1,13 +1,15 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Font from 'expo-font';
 
 import { AuthProvider, AuthContext } from './src/contexts/AuthContext';
 import { AIProvider } from './src/contexts/AIContext';
+import { QuizProvider } from './src/contexts/QuizContext';
 
 // Auth screens
 import WelcomeScreen from './src/screens/WelcomeScreen';
@@ -21,6 +23,8 @@ import SummaryScreen from './src/screens/SummaryScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
 import DetailScreen from './src/screens/DetailScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
+import QuizScreen from './src/screens/QuizScreen';
+import QuizResultScreen from './src/screens/QuizResultScreen';
 
 import { COLORS, GRADIENTS, SHADOWS } from './src/constants/theme';
 
@@ -40,6 +44,8 @@ function HomeStack() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Home" component={HomeScreen} />
       <Stack.Screen name="HomeDetail" component={DetailScreen} options={detailHeader} />
+      <Stack.Screen name="HomeQuiz" component={QuizScreen} />
+      <Stack.Screen name="HomeQuizResult" component={QuizResultScreen} />
     </Stack.Navigator>
   );
 }
@@ -49,6 +55,8 @@ function CameraStack() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Camera" component={CameraScreen} />
       <Stack.Screen name="Summary" component={SummaryScreen} />
+      <Stack.Screen name="Quiz" component={QuizScreen} />
+      <Stack.Screen name="QuizResult" component={QuizResultScreen} />
     </Stack.Navigator>
   );
 }
@@ -58,6 +66,8 @@ function HistoryStack() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="History" component={HistoryScreen} />
       <Stack.Screen name="HistoryDetail" component={DetailScreen} options={detailHeader} />
+      <Stack.Screen name="HistoryQuiz" component={QuizScreen} />
+      <Stack.Screen name="HistoryQuizResult" component={QuizResultScreen} />
     </Stack.Navigator>
   );
 }
@@ -155,11 +165,38 @@ function RootNavigator() {
   );
 }
 
+function FontLoadingScreen() {
+  return (
+    <View style={s.splash}>
+      <Text style={s.splashTitle}>Easy<Text style={{ color: COLORS.accent }}>Tutor</Text></Text>
+      <ActivityIndicator color={COLORS.accent} size="large" style={{ marginTop: 24 }} />
+    </View>
+  );
+}
+
 export default function App() {
+  const [fontsLoaded, setFontsLoaded] = useState(false);
+
+  useEffect(() => {
+    async function loadFonts() {
+      try {
+        await Font.loadAsync(Ionicons.font);
+      } catch (e) {
+        console.warn('Font load error:', e);
+      }
+      setFontsLoaded(true);
+    }
+    loadFonts();
+  }, []);
+
+  if (!fontsLoaded) return <FontLoadingScreen />;
+
   return (
     <AuthProvider>
       <AIProvider>
-        <RootNavigator />
+        <QuizProvider>
+          <RootNavigator />
+        </QuizProvider>
       </AIProvider>
     </AuthProvider>
   );

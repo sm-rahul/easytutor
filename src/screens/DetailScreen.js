@@ -328,6 +328,24 @@ export default function DetailScreen({ route, navigation }) {
           />
         </View>
 
+        {/* Practice Quiz */}
+        <View style={{ marginBottom: rs(4) }}>
+          <GradientButton
+            title="Practice Quiz"
+            onPress={() => {
+              const screenPrefix = route.name === 'HistoryDetail' ? 'History' : (route.name === 'HomeDetail' ? 'Home' : '');
+              const quizScreen = screenPrefix ? `${screenPrefix}Quiz` : 'Quiz';
+              navigation.navigate(quizScreen, {
+                historyId: item.id,
+                analysisResult: item.result,
+                quizNavigatePrefix: screenPrefix,
+              });
+            }}
+            gradient={GRADIENTS.purple}
+            icon={<Ionicons name="school-outline" size={18} color={COLORS.white} />}
+          />
+        </View>
+
         {/* Actions */}
         <View style={summaryStyles.actions}>
           <GradientButton

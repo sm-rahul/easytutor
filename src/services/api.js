@@ -109,3 +109,32 @@ export async function apiLogReadingTime(userId, seconds) {
     body: { seconds },
   });
 }
+
+// ============================================================
+// QUIZ
+// ============================================================
+export async function apiGenerateQuiz({ userId, historyId, extractedText, summary, keyWords, type, solutionSteps, finalAnswer }) {
+  return request('/quiz/generate', {
+    method: 'POST',
+    body: { userId, historyId, extractedText, summary, keyWords, type, solutionSteps, finalAnswer },
+  });
+}
+
+export async function apiGetQuiz(quizId, showAnswers = false) {
+  return request(`/quiz/${quizId}?showAnswers=${showAnswers}`);
+}
+
+export async function apiSubmitQuiz(quizId, { userId, answers, timeTakenSeconds }) {
+  return request(`/quiz/${quizId}/submit`, {
+    method: 'POST',
+    body: { userId, answers, timeTakenSeconds },
+  });
+}
+
+export async function apiGetQuizHistory(userId) {
+  return request(`/quiz/history/${userId}`);
+}
+
+export async function apiGetQuizPerformance(userId) {
+  return request(`/quiz/performance/${userId}`);
+}

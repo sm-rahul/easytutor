@@ -857,6 +857,8 @@ app.get('/api/admin/users/:id', requireAdmin, async (req, res) => {
 app.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {
   try {
     const userId = req.params.id;
+    await pool.query('DELETE FROM quiz_attempts WHERE user_id = ?', [userId]);
+    await pool.query('DELETE FROM quizzes WHERE user_id = ?', [userId]);
     await pool.query('DELETE FROM history WHERE user_id = ?', [userId]);
     await pool.query('DELETE FROM stats WHERE user_id = ?', [userId]);
     await pool.query('DELETE FROM users WHERE id = ?', [userId]);
@@ -917,6 +919,351 @@ app.delete('/api/admin/history/:id', requireAdmin, async (req, res) => {
   }
 });
 
+// ============================================================
+// QUIZ ROUTES
+// ============================================================
+
+const QUIZ_PROMPT = `You are EasyTutor Quiz Generator, an AI that creates practice quiz questions for students.
+
+Given content that a student has just studied, generate a quiz to test their understanding.
+
+RULES:
+1. Generate exactly 5 MCQ questions for short content, or up to 10 for large/complex content.
+2. Each question must have exactly 4 options (A, B, C, D).
+3. Exactly one option must be correct.
+4. Include a clear explanation for why the correct answer is right.
+5. Questions should test UNDERSTANDING, not just memorization.
+6. Use simple, clear language appropriate for students.
+
+FOR TEXT CONTENT:
+- Test comprehension of key concepts
+- Ask about definitions, relationships between ideas, and implications
+- Include "Why?" and "What would happen if...?" questions
+- Test understanding of real-world applications
+- At least one question should test vocabulary/key words
+
+FOR MATH/APTITUDE CONTENT:
+- Generate SIMILAR practice problems, NOT identical to the original
+- Change the numbers but keep the same concept and difficulty level
+- For algebra: use different variables or coefficients
+- For word problems: change the scenario but keep the same math concept
+- For aptitude: create parallel reasoning problems
+- Each question's correct answer must be verified — double-check your math
+- Show the working/reasoning in the explanation field
+
+DIFFICULTY DISTRIBUTION:
+- 2 easy questions (direct recall or simple application)
+- 2 medium questions (requires understanding and application)
+- 1 hard question (requires deeper analysis or multi-step reasoning)
+- For 10 questions: 3 easy, 4 medium, 3 hard
+
+RESPOND IN VALID JSON:
+{
+  "title": "Short quiz title (e.g., 'Photosynthesis Quiz' or 'Quadratic Equations Practice')",
+  "questions": [
+    {
+      "question": "The question text",
+      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "correctIndex": 0,
+      "explanation": "Why this answer is correct and why others are wrong",
+      "difficulty": "easy"
+    }
+  ]
+}
+
+IMPORTANT:
+- correctIndex is 0-based (0 = A, 1 = B, 2 = C, 3 = D)
+- Randomize the position of the correct answer — do NOT always put it in position A
+- For math: put the actual computed answer as an option, with plausible distractors
+- Explanations should be educational — teach the student something
+- NEVER generate questions about things NOT in the source content`;
+
+// Generate quiz from analysis content
+app.post('/api/quiz/generate', async (req, res) => {
+  try {
+    const { userId, historyId, extractedText, summary, keyWords, type, solutionSteps, finalAnswer } = req.body;
+
+    if (!userId || !extractedText) {
+      return res.status(400).json({ success: false, error: 'Missing required fields' });
+    }
+
+    const userMessage = `Content Type: ${type || 'text'}
+Extracted Text: ${extractedText}
+Summary: ${summary || ''}
+Key Words: ${(keyWords || []).join(', ')}
+${type === 'math' || type === 'aptitude' ? `Solution Steps: ${JSON.stringify(solutionSteps || [])}
+Final Answer: ${finalAnswer || ''}` : ''}
+
+Generate a quiz based on this content.`;
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: QUIZ_PROMPT },
+          { role: 'user', content: userMessage },
+        ],
+        max_tokens: 3000,
+        temperature: 0.7,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (data.error) {
+      return res.status(500).json({ success: false, error: data.error.message });
+    }
+
+    const content = data.choices[0].message.content;
+    const jsonStr = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const quizData = JSON.parse(jsonStr);
+
+    const title = quizData.title || `Quiz: ${(keyWords || []).slice(0, 3).join(', ')}`;
+    const [quizResult] = await pool.query(
+      `INSERT INTO quizzes (user_id, history_id, title, content_type, topic_keywords, total_questions)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [userId, historyId || null, title, type || 'text', JSON.stringify(keyWords || []), quizData.questions.length]
+    );
+
+    const quizId = quizResult.insertId;
+
+    for (let i = 0; i < quizData.questions.length; i++) {
+      const q = quizData.questions[i];
+      await pool.query(
+        `INSERT INTO quiz_questions (quiz_id, question_index, question_text, option_a, option_b, option_c, option_d, correct_option, explanation, difficulty)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [quizId, i, q.question, q.options[0], q.options[1], q.options[2], q.options[3], q.correctIndex, q.explanation, q.difficulty || 'medium']
+      );
+    }
+
+    res.json({ success: true, quizId, title, totalQuestions: quizData.questions.length });
+  } catch (error) {
+    console.error('Quiz generate error:', error);
+    res.status(500).json({ success: false, error: 'Could not generate quiz' });
+  }
+});
+
+// Get quiz with questions
+app.get('/api/quiz/:quizId', async (req, res) => {
+  try {
+    const { quizId } = req.params;
+    const showAnswers = req.query.showAnswers === 'true';
+
+    const [quizRows] = await pool.query('SELECT * FROM quizzes WHERE id = ?', [quizId]);
+    if (quizRows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Quiz not found' });
+    }
+
+    const quiz = quizRows[0];
+    const [questions] = await pool.query(
+      'SELECT * FROM quiz_questions WHERE quiz_id = ? ORDER BY question_index',
+      [quizId]
+    );
+
+    const formattedQuestions = questions.map(q => {
+      const base = {
+        id: q.id,
+        index: q.question_index,
+        question: q.question_text,
+        options: [q.option_a, q.option_b, q.option_c, q.option_d],
+        difficulty: q.difficulty,
+      };
+      if (showAnswers) {
+        base.correctIndex = q.correct_option;
+        base.explanation = q.explanation;
+      }
+      return base;
+    });
+
+    res.json({
+      success: true,
+      quiz: {
+        id: quiz.id,
+        title: quiz.title,
+        contentType: quiz.content_type,
+        topicKeywords: typeof quiz.topic_keywords === 'string' ? JSON.parse(quiz.topic_keywords) : quiz.topic_keywords,
+        totalQuestions: quiz.total_questions,
+        createdAt: quiz.created_at,
+      },
+      questions: formattedQuestions,
+    });
+  } catch (error) {
+    console.error('Get quiz error:', error);
+    res.status(500).json({ success: false, error: 'Could not fetch quiz' });
+  }
+});
+
+// Submit quiz answers
+app.post('/api/quiz/:quizId/submit', async (req, res) => {
+  try {
+    const { quizId } = req.params;
+    const { userId, answers, timeTakenSeconds } = req.body;
+
+    if (!userId || !answers || !Array.isArray(answers)) {
+      return res.status(400).json({ success: false, error: 'Invalid submission' });
+    }
+
+    const [questions] = await pool.query(
+      'SELECT id, question_text, option_a, option_b, option_c, option_d, correct_option, explanation FROM quiz_questions WHERE quiz_id = ? ORDER BY question_index',
+      [quizId]
+    );
+
+    let score = 0;
+    const detailedAnswers = questions.map(q => {
+      const userAnswer = answers.find(a => a.questionId === q.id);
+      const selected = userAnswer ? userAnswer.selected : -1;
+      const isCorrect = selected === q.correct_option;
+      if (isCorrect) score++;
+
+      return {
+        questionId: q.id,
+        question: q.question_text,
+        options: [q.option_a, q.option_b, q.option_c, q.option_d],
+        selected,
+        correct: q.correct_option,
+        isCorrect,
+        explanation: q.explanation,
+      };
+    });
+
+    const total = questions.length;
+    const percentage = total > 0 ? Math.round((score / total) * 100 * 100) / 100 : 0;
+
+    const [attemptResult] = await pool.query(
+      `INSERT INTO quiz_attempts (quiz_id, user_id, score, total_questions, percentage, answers, time_taken_seconds)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [quizId, userId, score, total, percentage, JSON.stringify(detailedAnswers), timeTakenSeconds || 0]
+    );
+
+    // Update stats
+    await pool.query(`INSERT IGNORE INTO stats (user_id, total_scans) VALUES (?, 0)`, [userId]);
+    await pool.query(
+      `UPDATE stats SET
+        total_quizzes = total_quizzes + 1,
+        today_quizzes = IF(last_quiz_date = CURDATE(), today_quizzes + 1, 1),
+        last_quiz_date = CURDATE()
+      WHERE user_id = ?`,
+      [userId]
+    );
+
+    res.json({
+      success: true,
+      result: {
+        attemptId: attemptResult.insertId,
+        score,
+        total,
+        percentage,
+        timeTakenSeconds: timeTakenSeconds || 0,
+        answers: detailedAnswers,
+      },
+    });
+  } catch (error) {
+    console.error('Quiz submit error:', error);
+    res.status(500).json({ success: false, error: 'Could not submit quiz' });
+  }
+});
+
+// Get quiz history for a user
+app.get('/api/quiz/history/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const [rows] = await pool.query(
+      `SELECT qa.id as attempt_id, qa.quiz_id, qa.score, qa.total_questions, qa.percentage,
+              qa.time_taken_seconds, qa.created_at,
+              q.title, q.content_type, q.topic_keywords
+       FROM quiz_attempts qa
+       JOIN quizzes q ON qa.quiz_id = q.id
+       WHERE qa.user_id = ?
+       ORDER BY qa.created_at DESC`,
+      [userId]
+    );
+
+    const attempts = rows.map(r => ({
+      attemptId: r.attempt_id,
+      quizId: r.quiz_id,
+      title: r.title,
+      contentType: r.content_type,
+      topicKeywords: typeof r.topic_keywords === 'string' ? JSON.parse(r.topic_keywords) : r.topic_keywords,
+      score: r.score,
+      totalQuestions: r.total_questions,
+      percentage: parseFloat(r.percentage),
+      timeTakenSeconds: r.time_taken_seconds,
+      createdAt: r.created_at,
+    }));
+
+    res.json({ success: true, attempts });
+  } catch (error) {
+    console.error('Quiz history error:', error);
+    res.status(500).json({ success: false, error: 'Could not fetch quiz history' });
+  }
+});
+
+// Get quiz performance analytics
+app.get('/api/quiz/performance/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const [overall] = await pool.query(
+      `SELECT COUNT(*) as totalAttempts,
+              COALESCE(AVG(percentage), 0) as avgScore,
+              COALESCE(MAX(percentage), 0) as bestScore,
+              COALESCE(SUM(time_taken_seconds), 0) as totalTime
+       FROM quiz_attempts WHERE user_id = ?`,
+      [userId]
+    );
+
+    const [byType] = await pool.query(
+      `SELECT q.content_type,
+              COUNT(*) as attempts,
+              COALESCE(AVG(qa.percentage), 0) as avgScore
+       FROM quiz_attempts qa
+       JOIN quizzes q ON qa.quiz_id = q.id
+       WHERE qa.user_id = ?
+       GROUP BY q.content_type`,
+      [userId]
+    );
+
+    const [trend] = await pool.query(
+      `SELECT qa.percentage, qa.created_at, q.content_type
+       FROM quiz_attempts qa
+       JOIN quizzes q ON qa.quiz_id = q.id
+       WHERE qa.user_id = ?
+       ORDER BY qa.created_at DESC LIMIT 10`,
+      [userId]
+    );
+
+    res.json({
+      success: true,
+      performance: {
+        overall: {
+          totalAttempts: overall[0].totalAttempts,
+          avgScore: Math.round(parseFloat(overall[0].avgScore) * 100) / 100,
+          bestScore: Math.round(parseFloat(overall[0].bestScore) * 100) / 100,
+          totalTimeMinutes: Math.round(overall[0].totalTime / 60),
+        },
+        byContentType: byType.map(r => ({
+          contentType: r.content_type,
+          attempts: r.attempts,
+          avgScore: Math.round(parseFloat(r.avgScore) * 100) / 100,
+        })),
+        recentTrend: trend.reverse().map(r => ({
+          percentage: parseFloat(r.percentage),
+          contentType: r.content_type,
+          date: r.created_at,
+        })),
+      },
+    });
+  } catch (error) {
+    console.error('Quiz performance error:', error);
+    res.status(500).json({ success: false, error: 'Could not fetch performance' });
+  }
+});
+
 // Root route
 app.get('/', (req, res) => {
   res.json({ status: 'ok', message: 'EasyTutor API is running', version: '1.0.0' });
@@ -966,6 +1313,68 @@ async function migrate() {
     }
   } catch (err) {
     console.error('Migration (goals columns) error:', err.message);
+  }
+
+  // Migration: create quiz tables
+  try {
+    const [tables] = await pool.query("SHOW TABLES LIKE 'quizzes'");
+    if (tables.length === 0) {
+      await pool.query(`CREATE TABLE IF NOT EXISTS quizzes (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        history_id INT DEFAULT NULL,
+        title VARCHAR(255) NOT NULL,
+        content_type VARCHAR(20) DEFAULT 'text',
+        topic_keywords JSON DEFAULT NULL,
+        total_questions INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_user (user_id),
+        INDEX idx_history (history_id)
+      )`);
+      await pool.query(`CREATE TABLE IF NOT EXISTS quiz_questions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        quiz_id INT NOT NULL,
+        question_index INT NOT NULL,
+        question_text TEXT NOT NULL,
+        option_a TEXT NOT NULL,
+        option_b TEXT NOT NULL,
+        option_c TEXT NOT NULL,
+        option_d TEXT NOT NULL,
+        correct_option TINYINT NOT NULL,
+        explanation TEXT DEFAULT NULL,
+        difficulty VARCHAR(20) DEFAULT 'medium',
+        INDEX idx_quiz (quiz_id)
+      )`);
+      await pool.query(`CREATE TABLE IF NOT EXISTS quiz_attempts (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        quiz_id INT NOT NULL,
+        user_id INT NOT NULL,
+        score INT NOT NULL DEFAULT 0,
+        total_questions INT NOT NULL DEFAULT 0,
+        percentage DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+        answers JSON NOT NULL,
+        time_taken_seconds INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_quiz (quiz_id),
+        INDEX idx_user (user_id)
+      )`);
+      console.log('Migration: created quiz tables');
+    }
+  } catch (err) {
+    console.error('Migration (quiz tables) error:', err.message);
+  }
+
+  // Migration: add quiz stats columns
+  try {
+    const [quizCols] = await pool.query("SHOW COLUMNS FROM stats LIKE 'total_quizzes'");
+    if (quizCols.length === 0) {
+      await pool.query("ALTER TABLE stats ADD COLUMN total_quizzes INT DEFAULT 0");
+      await pool.query("ALTER TABLE stats ADD COLUMN today_quizzes INT DEFAULT 0");
+      await pool.query("ALTER TABLE stats ADD COLUMN last_quiz_date DATE DEFAULT NULL");
+      console.log('Migration: added quiz stats columns');
+    }
+  } catch (err) {
+    console.error('Migration (quiz stats) error:', err.message);
   }
 }
 
