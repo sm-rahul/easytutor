@@ -4,7 +4,14 @@ checkAuth();
 let currentPage = 1;
 let currentSearch = '';
 let totalPages = 1;
+let editingId = null;
+let editingItem = null;
 const imageCache = {}; // Store image URIs by history ID
+
+function isDisplayableImage(uri) {
+  if (!uri) return false;
+  return uri.startsWith('data:image') || uri.startsWith('http://') || uri.startsWith('https://');
+}
 
 async function loadHistory() {
   const tbody = document.getElementById('historyBody');
@@ -32,7 +39,7 @@ async function loadHistory() {
       <tr style="cursor:pointer;" onclick="showDetail(${h.id}, this)" data-item='${escapeAttr(JSON.stringify(itemData))}' data-image='${imageUri ? "1" : "0"}'>
         <td class="text-muted">#${h.id}</td>
         <td>
-          ${imageUri
+          ${isDisplayableImage(imageUri)
             ? `<img src="${imageUri}" style="width:50px;height:50px;object-fit:cover;border-radius:6px;border:1px solid var(--border);" loading="lazy" alt="scan">`
             : `<div style="width:50px;height:50px;border-radius:6px;background:var(--bg-tertiary);display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:11px;">No img</div>`
           }
@@ -91,6 +98,8 @@ document.getElementById('searchInput').addEventListener('input', (e) => {
 function showDetail(id, row) {
   try {
     const item = JSON.parse(row.dataset.item);
+    editingId = id;
+    editingItem = item;
     let examples = item.real_world_examples;
     if (typeof examples === 'string') {
       try { examples = JSON.parse(examples); } catch(e) { examples = []; }
@@ -102,7 +111,7 @@ function showDetail(id, row) {
 
     const cachedImage = imageCache[id];
     document.getElementById('detailContent').innerHTML = `
-      ${cachedImage ? `
+      ${isDisplayableImage(cachedImage) ? `
         <div class="detail-section">
           <div class="detail-label">Scanned Image</div>
           <div class="detail-value" style="text-align:center;">
@@ -157,6 +166,9 @@ function showDetail(id, row) {
 
 function closeDetailModal() {
   document.getElementById('detailModal').classList.remove('active');
+  document.getElementById('editBtn').style.display = '';
+  editingId = null;
+  editingItem = null;
 }
 
 // Delete confirmation
@@ -203,6 +215,76 @@ function escapeHtml(str) {
 
 function escapeAttr(str) {
   return str.replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+}
+
+// Edit functionality
+function toggleEdit() {
+  if (!editingItem || !editingId) return;
+  const content = document.getElementById('detailContent');
+  const btn = document.getElementById('editBtn');
+
+  const item = editingItem;
+  let examples = item.real_world_examples;
+  if (typeof examples === 'string') {
+    try { examples = JSON.parse(examples); } catch(e) { examples = []; }
+  }
+  let keywords = item.key_words;
+  if (typeof keywords === 'string') {
+    try { keywords = JSON.parse(keywords); } catch(e) { keywords = []; }
+  }
+
+  content.innerHTML = `
+    <div class="form-group">
+      <label>Summary</label>
+      <textarea class="form-textarea" id="editSummary" rows="3">${escapeHtml(item.summary || '')}</textarea>
+    </div>
+    <div class="form-group">
+      <label>Visual Explanation</label>
+      <textarea class="form-textarea" id="editVisual" rows="3">${escapeHtml(item.visual_explanation || '')}</textarea>
+    </div>
+    <div class="form-group">
+      <label>Real World Examples (one per line)</label>
+      <textarea class="form-textarea" id="editExamples" rows="3">${Array.isArray(examples) ? examples.join('\n') : ''}</textarea>
+    </div>
+    <div class="form-group">
+      <label>Key Words (comma separated)</label>
+      <input type="text" class="form-input" id="editKeywords" value="${Array.isArray(keywords) ? keywords.join(', ') : ''}">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeDetailModal()">Cancel</button>
+      <button class="btn btn-accent" onclick="saveEdit()">Save Changes</button>
+    </div>
+  `;
+  btn.style.display = 'none';
+}
+
+async function saveEdit() {
+  if (!editingId) return;
+  const summary = document.getElementById('editSummary').value;
+  const visual_explanation = document.getElementById('editVisual').value;
+  const examplesRaw = document.getElementById('editExamples').value.trim();
+  const keywordsRaw = document.getElementById('editKeywords').value.trim();
+
+  const real_world_examples = examplesRaw ? JSON.stringify(examplesRaw.split('\n').filter(l => l.trim())) : '[]';
+  const key_words = keywordsRaw ? JSON.stringify(keywordsRaw.split(',').map(k => k.trim()).filter(Boolean)) : '[]';
+
+  try {
+    await updateHistory(editingId, { summary, visual_explanation, real_world_examples, key_words });
+    closeDetailModal();
+    showToast('Lesson updated successfully', 'success');
+    loadHistory();
+  } catch (err) {
+    console.error('Save edit error:', err);
+    showToast('Failed to update lesson', 'error');
+  }
+}
+
+function showToast(msg, type) {
+  const toast = document.getElementById('toast');
+  if (!toast) return;
+  toast.textContent = msg;
+  toast.className = `toast show ${type || 'success'}`;
+  setTimeout(() => { toast.className = 'toast'; }, 3000);
 }
 
 loadHistory();

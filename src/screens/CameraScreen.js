@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Camera } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AIContext } from '../contexts/AIContext';
@@ -56,9 +57,23 @@ export default function CameraScreen({ navigation }) {
     })();
   }, []);
 
+  const compressImage = async (uri) => {
+    try {
+      const result = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: 800 } }],
+        { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+      );
+      return result.uri;
+    } catch (e) {
+      console.warn('Image compression failed, using original:', e);
+      return uri;
+    }
+  };
+
   const takePicture = async () => {
     if (cameraRef.current) {
-      const result = await cameraRef.current.takePictureAsync({ quality: 0.8 });
+      const result = await cameraRef.current.takePictureAsync({ quality: 0.9 });
       setPhotoUri(result.uri);
     }
   };
@@ -75,8 +90,9 @@ export default function CameraScreen({ navigation }) {
 
   const usePhoto = async () => {
     if (photoUri) {
-      setImage(photoUri);
-      const analysisResult = await processImage(photoUri);
+      const compressed = await compressImage(photoUri);
+      setImage(compressed);
+      const analysisResult = await processImage(compressed);
       if (analysisResult) {
         navigation.navigate('Summary');
       } else {

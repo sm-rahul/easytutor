@@ -29,6 +29,11 @@ async function imageToBase64(uri) {
 export async function analyzeImage(imageUri, userId) {
   try {
     const base64 = await imageToBase64(imageUri);
+
+    if (!base64 || base64.length < 100) {
+      throw new Error('Could not read the image file. Please try taking a new photo.');
+    }
+
     const response = await apiAnalyzeImage(base64, userId);
 
     if (!response.success) {
@@ -38,17 +43,19 @@ export async function analyzeImage(imageUri, userId) {
     return response.result;
   } catch (error) {
     console.error('Image analysis error:', error);
-    // Return a fallback so the app doesn't crash
+    const errorMsg = error.message || 'Unknown error';
+
+    // Return a result with the actual error so the user knows what went wrong
     return {
       type: 'text',
-      extractedText: 'Could not read the image. Please try again with a clearer photo.',
-      summary: 'We had trouble reading this image. Try taking a photo with better lighting and make sure the text is clearly visible.',
+      extractedText: '',
+      summary: `Something went wrong: ${errorMsg}\n\nPlease check your internet connection and try again. If the problem continues, the AI service may be temporarily unavailable.`,
       visualExplanation: 'Make sure the text in the photo is big and clear, like reading a book up close!',
       realWorldExamples: [
         'Try holding your phone steady, like taking a photo of your pet',
         'Make sure there is good light, like reading near a window',
       ],
-      keyWords: ['try again', 'clear photo'],
+      keyWords: ['try again'],
     };
   }
 }

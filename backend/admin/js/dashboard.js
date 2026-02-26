@@ -9,6 +9,7 @@ async function loadDashboard() {
     document.getElementById('totalUsers').textContent = d.totalUsers;
     document.getElementById('totalScans').textContent = d.totalScans;
     document.getElementById('totalSaved').textContent = d.totalSaved;
+    document.getElementById('totalQuizzes').textContent = d.totalQuizzes || 0;
     document.getElementById('newUsersWeek').textContent = d.newUsersThisWeek;
 
     const tbody = document.getElementById('recentBody');

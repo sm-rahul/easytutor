@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" type="image/png" href="/admin/favicon.png">
-  <title>EasyTutor Admin — Users</title>
+  <title>EasyTutor Admin — Goals</title>
   <link rel="stylesheet" href="css/admin.css">
 </head>
 <body>
@@ -20,7 +20,7 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
           Dashboard
         </a>
-        <a href="users.html" class="nav-item active">
+        <a href="users.html" class="nav-item">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           Users
         </a>
@@ -32,7 +32,7 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
           Quizzes
         </a>
-        <a href="goals.html" class="nav-item">
+        <a href="goals.html" class="nav-item active">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
           Goals
         </a>
@@ -52,14 +52,14 @@
     <!-- Main -->
     <main class="main">
       <div class="page-header">
-        <h2>User Management</h2>
-        <p>Manage all registered users — <span id="totalCount">0 users</span></p>
+        <h2>Goals & Progress</h2>
+        <p>User learning goals and progress tracking — <span id="totalCount">0 users</span></p>
       </div>
 
       <!-- Search -->
       <div class="search-bar">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input type="text" id="searchInput" placeholder="Search by name, email, or child name...">
+        <input type="text" id="searchInput" placeholder="Search by name or email...">
       </div>
 
       <!-- Table -->
@@ -68,17 +68,17 @@
           <table>
             <thead>
               <tr>
-                <th style="width:50px;"></th>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Child</th>
-                <th>Scans</th>
-                <th>Saved</th>
-                <th>Joined</th>
+                <th>User</th>
+                <th>Lessons Goal</th>
+                <th>Time Goal</th>
+                <th>Today Lessons</th>
+                <th>Today Reading</th>
+                <th>Total Reading</th>
+                <th>Quizzes</th>
                 <th style="width:80px;">Actions</th>
               </tr>
             </thead>
-            <tbody id="usersBody">
+            <tbody id="goalsBody">
               <tr><td colspan="8" class="loading"><div class="spinner"></div> Loading...</td></tr>
             </tbody>
           </table>
@@ -94,20 +94,31 @@
     </main>
   </div>
 
-  <!-- Delete Modal -->
-  <div class="modal-overlay" id="deleteModal">
-    <div class="modal">
-      <h3>Delete User</h3>
-      <p>Are you sure you want to delete <strong id="deleteUserName"></strong>? This will also delete all their history and stats. This action cannot be undone.</p>
+  <!-- Edit Goals Modal -->
+  <div class="modal-overlay" id="editModal">
+    <div class="modal" style="max-width:420px;">
+      <h3>Edit Daily Goals</h3>
+      <p id="editUserName" style="margin-bottom:16px;"></p>
+      <div class="form-group">
+        <label>Daily Lessons Goal</label>
+        <input type="number" class="form-input" id="editLessons" min="1" max="20">
+      </div>
+      <div class="form-group">
+        <label>Daily Reading Minutes Goal</label>
+        <input type="number" class="form-input" id="editMinutes" min="1" max="120">
+      </div>
       <div class="modal-actions">
-        <button class="btn btn-ghost" onclick="closeDeleteModal()">Cancel</button>
-        <button class="btn btn-danger" id="confirmDeleteBtn">Delete User</button>
+        <button class="btn btn-ghost" onclick="closeEditModal()">Cancel</button>
+        <button class="btn btn-accent" onclick="saveGoals()">Save Changes</button>
       </div>
     </div>
   </div>
 
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
   <script src="js/auth.js"></script>
   <script src="js/api.js"></script>
-  <script src="js/users.js"></script>
+  <script src="js/goals.js"></script>
 </body>
 </html>

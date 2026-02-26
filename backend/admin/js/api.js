@@ -61,3 +61,52 @@ async function getHistory(page = 1, limit = 20, search = '') {
 async function deleteHistory(id) {
   return adminFetch(`/api/admin/history/${id}`, { method: 'DELETE' });
 }
+
+async function updateHistory(id, data) {
+  return adminFetch(`/api/admin/history/${id}`, { method: 'PUT', body: data });
+}
+
+// Quiz admin
+async function getQuizzes(page = 1, limit = 20, search = '') {
+  const params = new URLSearchParams({ page, limit, search });
+  return adminFetch(`/api/admin/quizzes?${params}`);
+}
+
+async function getQuiz(id) {
+  return adminFetch(`/api/admin/quizzes/${id}`);
+}
+
+async function deleteQuiz(id) {
+  return adminFetch(`/api/admin/quizzes/${id}`, { method: 'DELETE' });
+}
+
+// Goals admin
+async function getGoalsAdmin(page = 1, limit = 20, search = '') {
+  const params = new URLSearchParams({ page, limit, search });
+  return adminFetch(`/api/admin/goals?${params}`);
+}
+
+async function updateGoalsAdmin(userId, data) {
+  return adminFetch(`/api/admin/goals/${userId}`, { method: 'PUT', body: data });
+}
+
+// Settings admin
+async function getSettings() {
+  return adminFetch('/api/admin/settings');
+}
+
+async function updateSetting(key, value) {
+  return adminFetch(`/api/admin/settings/${encodeURIComponent(key)}`, { method: 'PUT', body: { value } });
+}
+
+async function createSetting(data) {
+  return adminFetch('/api/admin/settings', { method: 'POST', body: data });
+}
+
+async function deleteSetting(key) {
+  return adminFetch(`/api/admin/settings/${encodeURIComponent(key)}`, { method: 'DELETE' });
+}
+
+async function uploadAboutImage(base64Data, filename) {
+  return adminFetch('/api/admin/upload-image', { method: 'POST', body: { image: base64Data, filename } });
+}

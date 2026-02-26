@@ -6,7 +6,7 @@ const API_BASE = Platform.OS === 'web'
   ? 'http://localhost:5000/api'
   : 'http://192.168.1.8:5000/api';
 
-async function request(endpoint, options = {}) {
+async function request(endpoint, options = {}, timeoutMs = 45000) {
   const url = `${API_BASE}${endpoint}`;
   const config = {
     headers: { 'Content-Type': 'application/json' },
@@ -16,8 +16,31 @@ async function request(endpoint, options = {}) {
     config.body = JSON.stringify(config.body);
   }
 
-  const response = await fetch(url, config);
-  const data = await response.json();
+  let response;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    response = await fetch(url, { ...config, signal: controller.signal });
+  } catch (networkError) {
+    clearTimeout(timeoutId);
+    if (networkError.name === 'AbortError') {
+      throw new Error('Request timed out — please try again');
+    }
+    throw new Error('Network error — check your internet connection');
+  }
+  clearTimeout(timeoutId);
+
+  let data;
+  try {
+    data = await response.json();
+  } catch (parseError) {
+    throw new Error(`Server error (${response.status})`);
+  }
+
+  if (!response.ok && !data.success) {
+    throw new Error(data.error || `Request failed (${response.status})`);
+  }
+
   return data;
 }
 
@@ -79,14 +102,14 @@ export async function apiAnalyzeImage(base64Image, userId) {
   return request('/analyze', {
     method: 'POST',
     body: { base64Image, userId },
-  });
+  }, 120000); // 2 minutes — gpt-4o with images can take 60+ seconds
 }
 
 export async function apiSimplify({ summary, visualExplanation, realWorldExamples, extractedText, solutionSteps }) {
   return request('/simplify', {
     method: 'POST',
     body: { summary, visualExplanation, realWorldExamples, extractedText, solutionSteps },
-  });
+  }, 90000); // 90 seconds
 }
 
 // ============================================================
@@ -124,7 +147,7 @@ export async function apiGenerateQuiz({ userId, historyId, extractedText, summar
   return request('/quiz/generate', {
     method: 'POST',
     body: { userId, historyId, extractedText, summary, keyWords, type, solutionSteps, finalAnswer },
-  });
+  }, 90000); // 90 seconds
 }
 
 export async function apiGetQuiz(quizId, showAnswers = false) {

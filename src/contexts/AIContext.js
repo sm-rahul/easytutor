@@ -60,7 +60,7 @@ export const AIProvider = ({ children }) => {
     try {
       const result = await analyzeImage(uri, user?.id);
       setAnalysisResult(result);
-      await refreshHistory(); // refresh stats after scan
+      refreshHistory().catch(() => {}); // refresh stats in background, don't block result
       return result;
     } catch (error) {
       console.error('Analysis error:', error);

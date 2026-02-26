@@ -1,18 +1,27 @@
-require('dotenv').config();
+require('dotenv').config({ path: __dirname + '/.env' });
 const express = require('express');
 const cors = require('cors');
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const path = require('path');
+const fs = require('fs');
 const nodemailer = require('nodemailer');
 
 const app = express();
 app.use(cors());
+
+// In-memory cache for image analysis results (avoids duplicate OpenAI calls)
+const analysisCache = new Map();
+const CACHE_MAX = 200;
 app.use(express.json({ limit: '50mb' }));
 
 // Serve admin panel static files
 app.use('/admin', express.static(path.join(__dirname, 'admin')));
+
+// Serve uploaded files
+const uploadsDir = path.join(__dirname, 'admin', 'uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
 // MySQL connection pool
 const pool = mysql.createPool({
@@ -471,20 +480,25 @@ STEP 2B: IF type is "math" OR "aptitude", respond with:
 RULES FOR MATH/APTITUDE SOLUTIONS:
 - YOU MUST ALWAYS SOLVE THE PROBLEM COMPLETELY. Never say "requires numerical methods", "use a calculator", "use graphing", or "this is too complex". YOU are the calculator. YOU must compute the actual numerical answer.
 - ACCURACY IS THE #1 PRIORITY. Double-check every calculation before responding. Verify your final answer by working backwards.
-- Break the solution into 3-7 clear steps (more for complex problems, fewer for simple ones)
+- SCALE THE NUMBER OF STEPS BASED ON PROBLEM COMPLEXITY:
+  • Simple problems (basic arithmetic, single operation): 3-4 steps
+  • Medium problems (multi-step equations, basic word problems): 5-7 steps
+  • Complex problems (quadratics, simultaneous equations, multi-part word problems): 7-10 steps
+  • Very complex problems (calculus, advanced geometry, long aptitude reasoning): 10-15 steps
+  The goal is to explain EVERY tiny detail so even a beginner can follow along. NEVER combine multiple operations into one step. If you would do 2 things at once, split them into 2 separate steps.
 - Each step must have a title, explanation, and expression
+- The EXPLANATION in each step should be 2-4 sentences long. First say WHAT you are doing, then WHY you are doing it, then give a simple real-life comparison if helpful. Example: "Now we move the 5 to the other side. When we move a number across the equals sign, we change its sign from + to -. Think of it like moving a toy from one box to another — the toy changes boxes but stays the same!"
 - The expression field must show the EXACT arithmetic/working — do NOT skip intermediate calculations. Show every single operation: 2x + 5 = 15 → 2x = 15 - 5 → 2x = 10 → x = 10/2 → x = 5
 - Carry forward values precisely from one step to the next. Never approximate unless the problem asks for it.
-- The explanation should use simple, clear language anyone can understand
-- Use everyday comparisons and relatable examples
-- For aptitude: show the logical reasoning pattern, elimination, or deduction in the expression field
+- Use everyday comparisons and relatable examples in step explanations
+- For aptitude: show the logical reasoning pattern, elimination, or deduction in the expression field. Break down the reasoning into many small steps — show each elimination or deduction as its own step.
 - Always include units where applicable
 - The finalAnswer MUST contain the actual computed answer (a number, value, or concrete result). Example: "x = 5" or "The answer is 42 cm²". NEVER give a vague answer like "requires further calculation" or "use numerical methods".
 - BEFORE writing the finalAnswer, mentally re-verify: plug the answer back into the original problem to confirm it is correct
 - For equations: solve for the variable and give the exact value (e.g., x = 3, y = -2)
-- For quadratic/cubic equations: use the quadratic formula or factoring and give ALL roots
-- For word problems: compute the final numerical answer with units
-- For geometry: calculate the exact measurement (area, perimeter, angle, etc.)
+- For quadratic/cubic equations: use the quadratic formula or factoring and give ALL roots. Show each step of the formula separately.
+- For word problems: first translate the words into an equation (as its own step), then solve step by step, then state the final answer with units
+- For geometry: state the formula first (as its own step), then substitute values, then compute the result
 
 ⚠️ MANDATORY SELF-VERIFICATION CHECKLIST (DO THIS BEFORE RESPONDING):
 1. Re-read the image one more time — did you copy the numbers and text EXACTLY as written?
@@ -510,16 +524,22 @@ app.post('/api/analyze', async (req, res) => {
       return res.status(400).json({ success: false, error: 'No image provided' });
     }
 
-    // Track daily scan count
+    // Track daily scan count (fire-and-forget, don't block the AI call)
     if (userId) {
-      await pool.query(
+      pool.query(
         `UPDATE stats SET
           today_scans = IF(last_scan_date = CURDATE(), today_scans + 1, 1),
           last_scan_date = CURDATE(),
           total_scans = total_scans + 1
         WHERE user_id = ?`,
         [userId]
-      );
+      ).catch(err => console.error('Stats update error:', err));
+    }
+
+    // Check image cache — skip OpenAI for duplicate images
+    const imageHash = crypto.createHash('sha256').update(base64Image.slice(0, 50000)).digest('hex');
+    if (analysisCache.has(imageHash)) {
+      return res.json({ success: true, result: analysisCache.get(imageHash), cached: true });
     }
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -539,21 +559,29 @@ app.post('/api/analyze', async (req, res) => {
                 type: 'image_url',
                 image_url: {
                   url: `data:image/jpeg;base64,${base64Image}`,
-                  detail: 'high',
+                  detail: 'auto',
                 },
               },
               {
                 type: 'text',
-                text: 'Read every word in this image very carefully. If it contains a math or aptitude problem, solve it step by step and give the CORRECT final answer — double-check your arithmetic by re-computing. If it is text content, explain EVERYTHING on the page in detail with paragraphs and key points — do not skip any section. ACCURACY IS CRITICAL: verify every calculation before responding. Students trust this answer.',
+                text: 'FIRST: Carefully transcribe every word, number, symbol, and equation visible in this image exactly as written. Pay special attention to handwritten text, mathematical symbols (×/x, −/-, ÷/), subscripts, superscripts, and table structures.\n\nTHEN: If it contains a math or aptitude problem, YOU MUST SOLVE IT COMPLETELY — compute the actual numerical answer yourself, do NOT say "use a calculator" or "depends on evaluation". Break every operation into its own step so a beginner can follow. Give the CORRECT final answer with the actual computed value. If it is text content, explain EVERYTHING on the page in detail with paragraphs and key points — do not skip any section. ACCURACY IS CRITICAL: verify every calculation before responding. Students trust this answer. MORE STEPS = BETTER UNDERSTANDING.',
               },
             ],
           },
         ],
-        max_tokens: 4096,
+        max_tokens: 8192,
         temperature: 0,
         seed: 42,
+        response_format: { type: 'json_object' },
       }),
     });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMsg = errorData.error?.message || `OpenAI API returned status ${response.status}`;
+      console.error('OpenAI API error:', errorMsg);
+      return res.status(500).json({ success: false, error: errorMsg });
+    }
 
     const data = await response.json();
 
@@ -562,9 +590,34 @@ app.post('/api/analyze', async (req, res) => {
       return res.status(500).json({ success: false, error: data.error.message || 'OpenAI API error' });
     }
 
+    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+      console.error('Unexpected OpenAI response:', JSON.stringify(data).slice(0, 500));
+      return res.status(500).json({ success: false, error: 'Unexpected response from AI service' });
+    }
+
     const content = data.choices[0].message.content;
-    const jsonStr = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    const result = JSON.parse(jsonStr);
+    let jsonStr = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+    // Try to extract JSON if there's extra text around it
+    if (!jsonStr.startsWith('{')) {
+      const match = jsonStr.match(/\{[\s\S]*\}/);
+      if (match) jsonStr = match[0];
+    }
+
+    let result;
+    try {
+      result = JSON.parse(jsonStr);
+    } catch (parseErr) {
+      console.error('JSON parse error. Raw content:', content.slice(0, 500));
+      return res.status(500).json({ success: false, error: 'AI returned invalid response format. Please try again.' });
+    }
+
+    // Store in cache (LRU eviction if full)
+    if (analysisCache.size >= CACHE_MAX) {
+      const firstKey = analysisCache.keys().next().value;
+      analysisCache.delete(firstKey);
+    }
+    analysisCache.set(imageHash, result);
 
     res.json({ success: true, result });
   } catch (error) {
@@ -627,7 +680,7 @@ Please rewrite this in the simplest possible way so anyone can understand.`;
         Authorization: `Bearer ${OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: SIMPLIFY_PROMPT },
           { role: 'user', content: userMessage },
@@ -635,6 +688,7 @@ Please rewrite this in the simplest possible way so anyone can understand.`;
         max_tokens: 3000,
         temperature: 0,
         seed: 42,
+        response_format: { type: 'json_object' },
       }),
     });
 
@@ -814,6 +868,7 @@ app.get('/api/admin/dashboard', requireAdmin, async (req, res) => {
     const [newUsersWeek] = await pool.query(
       'SELECT COUNT(*) as total FROM users WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)'
     );
+    const [quizCount] = await pool.query('SELECT COUNT(*) as total FROM quizzes');
     const [recentActivity] = await pool.query(
       `SELECT h.id, h.extracted_text, h.summary, h.created_at, u.name as user_name, u.email
        FROM history h JOIN users u ON h.user_id = u.id
@@ -826,6 +881,7 @@ app.get('/api/admin/dashboard', requireAdmin, async (req, res) => {
         totalScans: scanSum[0].total,
         totalSaved: historyCount[0].total,
         newUsersThisWeek: newUsersWeek[0].total,
+        totalQuizzes: quizCount[0].total,
         recentActivity,
       },
     });
@@ -959,6 +1015,251 @@ app.delete('/api/admin/history/:id', requireAdmin, async (req, res) => {
   }
 });
 
+// Admin: edit history item
+app.put('/api/admin/history/:id', requireAdmin, async (req, res) => {
+  try {
+    const { summary, visual_explanation, real_world_examples, key_words } = req.body;
+    await pool.query(
+      `UPDATE history SET summary = ?, visual_explanation = ?, real_world_examples = ?, key_words = ? WHERE id = ?`,
+      [summary, visual_explanation, real_world_examples, key_words, req.params.id]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Admin edit history error:', error);
+    res.status(500).json({ success: false, error: 'Could not update history item' });
+  }
+});
+
+// Admin: list quizzes (paginated + search)
+app.get('/api/admin/quizzes', requireAdmin, async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const search = req.query.search || '';
+    const offset = (page - 1) * limit;
+
+    let where = '';
+    let params = [];
+    if (search) {
+      where = 'WHERE q.title LIKE ? OR q.content_type LIKE ? OR u.name LIKE ?';
+      const s = `%${search}%`;
+      params = [s, s, s];
+    }
+
+    const [countRows] = await pool.query(
+      `SELECT COUNT(*) as total FROM quizzes q JOIN users u ON q.user_id = u.id ${where}`, params
+    );
+    const [rows] = await pool.query(
+      `SELECT q.*, u.name as user_name, u.email as user_email,
+              (SELECT COUNT(*) FROM quiz_attempts WHERE quiz_id = q.id) as attempt_count,
+              (SELECT COALESCE(AVG(percentage), 0) FROM quiz_attempts WHERE quiz_id = q.id) as avg_score
+       FROM quizzes q JOIN users u ON q.user_id = u.id ${where}
+       ORDER BY q.created_at DESC LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
+    );
+
+    res.json({
+      success: true,
+      data: rows,
+      pagination: { page, limit, total: countRows[0].total, pages: Math.ceil(countRows[0].total / limit) },
+    });
+  } catch (error) {
+    console.error('Admin quizzes error:', error);
+    res.status(500).json({ success: false, error: 'Could not load quizzes' });
+  }
+});
+
+// Admin: quiz detail with questions + attempts
+app.get('/api/admin/quizzes/:id', requireAdmin, async (req, res) => {
+  try {
+    const [quizzes] = await pool.query(
+      `SELECT q.*, u.name as user_name, u.email as user_email
+       FROM quizzes q JOIN users u ON q.user_id = u.id WHERE q.id = ?`,
+      [req.params.id]
+    );
+    if (quizzes.length === 0) {
+      return res.status(404).json({ success: false, error: 'Quiz not found' });
+    }
+    const [questions] = await pool.query(
+      'SELECT * FROM quiz_questions WHERE quiz_id = ? ORDER BY question_index', [req.params.id]
+    );
+    const [attempts] = await pool.query(
+      `SELECT qa.*, u.name as user_name FROM quiz_attempts qa
+       JOIN users u ON qa.user_id = u.id WHERE qa.quiz_id = ? ORDER BY qa.created_at DESC`,
+      [req.params.id]
+    );
+    res.json({ success: true, data: { quiz: quizzes[0], questions, attempts } });
+  } catch (error) {
+    console.error('Admin quiz detail error:', error);
+    res.status(500).json({ success: false, error: 'Could not load quiz' });
+  }
+});
+
+// Admin: delete quiz (cascade)
+app.delete('/api/admin/quizzes/:id', requireAdmin, async (req, res) => {
+  try {
+    const quizId = req.params.id;
+    await pool.query('DELETE FROM quiz_attempts WHERE quiz_id = ?', [quizId]);
+    await pool.query('DELETE FROM quiz_questions WHERE quiz_id = ?', [quizId]);
+    await pool.query('DELETE FROM quizzes WHERE id = ?', [quizId]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Admin delete quiz error:', error);
+    res.status(500).json({ success: false, error: 'Could not delete quiz' });
+  }
+});
+
+// Admin: list goals/progress for all users
+app.get('/api/admin/goals', requireAdmin, async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const search = req.query.search || '';
+    const offset = (page - 1) * limit;
+
+    let where = '';
+    let params = [];
+    if (search) {
+      where = 'WHERE u.name LIKE ? OR u.email LIKE ?';
+      const s = `%${search}%`;
+      params = [s, s];
+    }
+
+    const [countRows] = await pool.query(`SELECT COUNT(*) as total FROM users u ${where}`, params);
+    const [rows] = await pool.query(
+      `SELECT u.id, u.name, u.email, u.child_name, u.avatar,
+              COALESCE(s.daily_goal_lessons, 3) as daily_goal_lessons,
+              COALESCE(s.daily_goal_minutes, 15) as daily_goal_minutes,
+              COALESCE(s.today_lessons_completed, 0) as today_lessons,
+              COALESCE(s.today_reading_seconds, 0) as today_reading_seconds,
+              COALESCE(s.total_reading_seconds, 0) as total_reading_seconds,
+              COALESCE(s.total_quizzes, 0) as total_quizzes,
+              COALESCE(s.total_scans, 0) as total_scans,
+              s.last_reading_date
+       FROM users u LEFT JOIN stats s ON u.id = s.user_id ${where}
+       ORDER BY u.created_at DESC LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
+    );
+
+    res.json({
+      success: true,
+      data: rows,
+      pagination: { page, limit, total: countRows[0].total, pages: Math.ceil(countRows[0].total / limit) },
+    });
+  } catch (error) {
+    console.error('Admin goals error:', error);
+    res.status(500).json({ success: false, error: 'Could not load goals' });
+  }
+});
+
+// Admin: update user goals
+app.put('/api/admin/goals/:userId', requireAdmin, async (req, res) => {
+  try {
+    const { dailyLessons, dailyMinutes } = req.body;
+    const [existing] = await pool.query('SELECT id FROM stats WHERE user_id = ?', [req.params.userId]);
+    if (existing.length === 0) {
+      await pool.query(
+        'INSERT INTO stats (user_id, daily_goal_lessons, daily_goal_minutes) VALUES (?, ?, ?)',
+        [req.params.userId, dailyLessons, dailyMinutes]
+      );
+    } else {
+      await pool.query(
+        'UPDATE stats SET daily_goal_lessons = ?, daily_goal_minutes = ? WHERE user_id = ?',
+        [dailyLessons, dailyMinutes, req.params.userId]
+      );
+    }
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Admin update goals error:', error);
+    res.status(500).json({ success: false, error: 'Could not update goals' });
+  }
+});
+
+// Admin: list all settings
+app.get('/api/admin/settings', requireAdmin, async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM app_settings ORDER BY id');
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    console.error('Admin settings error:', error);
+    res.status(500).json({ success: false, error: 'Could not load settings' });
+  }
+});
+
+// Admin: update a setting
+app.put('/api/admin/settings/:key', requireAdmin, async (req, res) => {
+  try {
+    const { value } = req.body;
+    await pool.query('UPDATE app_settings SET setting_value = ? WHERE setting_key = ?', [value, req.params.key]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Admin update setting error:', error);
+    res.status(500).json({ success: false, error: 'Could not update setting' });
+  }
+});
+
+// Admin: create new setting
+app.post('/api/admin/settings', requireAdmin, async (req, res) => {
+  try {
+    const { key, value, type, description } = req.body;
+    await pool.query(
+      'INSERT INTO app_settings (setting_key, setting_value, setting_type, description) VALUES (?, ?, ?, ?)',
+      [key, value, type || 'text', description || '']
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Admin create setting error:', error);
+    res.status(500).json({ success: false, error: 'Could not create setting' });
+  }
+});
+
+// Admin: delete setting
+app.delete('/api/admin/settings/:key', requireAdmin, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM app_settings WHERE setting_key = ?', [req.params.key]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Admin delete setting error:', error);
+    res.status(500).json({ success: false, error: 'Could not delete setting' });
+  }
+});
+
+// Admin: upload about image
+app.post('/api/admin/upload-image', requireAdmin, async (req, res) => {
+  try {
+    const { image, filename } = req.body;
+    if (!image) return res.status(400).json({ success: false, error: 'No image data' });
+
+    // Extract base64 data (strip data:image/...;base64, prefix)
+    const matches = image.match(/^data:image\/(\w+);base64,(.+)$/);
+    if (!matches) return res.status(400).json({ success: false, error: 'Invalid image format' });
+
+    const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
+    const buffer = Buffer.from(matches[2], 'base64');
+    const safeName = (filename || 'about-us').replace(/[^a-zA-Z0-9-_]/g, '') + '.' + ext;
+    const filePath = path.join(uploadsDir, safeName);
+
+    fs.writeFileSync(filePath, buffer);
+
+    const imageUrl = `/admin/uploads/${safeName}`;
+    // Update or create the about_image setting
+    const [existing] = await pool.query("SELECT id FROM app_settings WHERE setting_key = 'about_image'");
+    if (existing.length > 0) {
+      await pool.query("UPDATE app_settings SET setting_value = ? WHERE setting_key = 'about_image'", [imageUrl]);
+    } else {
+      await pool.query(
+        "INSERT INTO app_settings (setting_key, setting_value, setting_type, description) VALUES ('about_image', ?, 'text', 'About page header image')",
+        [imageUrl]
+      );
+    }
+
+    res.json({ success: true, imageUrl });
+  } catch (error) {
+    console.error('Admin upload image error:', error);
+    res.status(500).json({ success: false, error: 'Could not upload image' });
+  }
+});
+
 // ============================================================
 // QUIZ ROUTES
 // ============================================================
@@ -1061,13 +1362,14 @@ Generate a quiz based on this content. CRITICAL: For every math/aptitude questio
         Authorization: `Bearer ${OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: QUIZ_PROMPT },
           { role: 'user', content: userMessage },
         ],
         max_tokens: 4000,
         temperature: 0.3,
+        response_format: { type: 'json_object' },
       }),
     });
 
@@ -1507,6 +1809,30 @@ async function migrate() {
     }
   } catch (err) {
     console.error('Migration (quiz stats) error:', err.message);
+  }
+
+  // Migration: create app_settings table
+  try {
+    const [tables] = await pool.query("SHOW TABLES LIKE 'app_settings'");
+    if (tables.length === 0) {
+      await pool.query(`CREATE TABLE IF NOT EXISTS app_settings (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        setting_key VARCHAR(100) NOT NULL UNIQUE,
+        setting_value TEXT NOT NULL,
+        setting_type VARCHAR(20) DEFAULT 'text',
+        description VARCHAR(255) DEFAULT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )`);
+      await pool.query(`INSERT INTO app_settings (setting_key, setting_value, setting_type, description) VALUES
+        ('about_title', 'EasyTutor', 'text', 'App name displayed in About section'),
+        ('about_description', 'EasyTutor is your AI-powered learning companion that makes education easy and fun for students of all ages.', 'text', 'About us description'),
+        ('about_features', '["AI-powered image analysis","Step-by-step explanations","Smart quiz generation","Daily learning goals","Reading time tracking"]', 'json', 'Feature list shown in About'),
+        ('contact_email', 'support@easytutor.com', 'text', 'Support email'),
+        ('app_version', '1.0.0', 'text', 'Current app version')`);
+      console.log('Migration: created app_settings table with seed data');
+    }
+  } catch (err) {
+    console.error('Migration (app_settings) error:', err.message);
   }
 }
 
