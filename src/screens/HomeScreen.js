@@ -8,8 +8,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { AIContext } from '../contexts/AIContext';
 import { AuthContext } from '../contexts/AuthContext';
 import HistoryCard from '../components/HistoryCard';
-import GradientButton from '../components/GradientButton';
-import { IconBadge, GlowIcon, CircleIcon } from '../components/AppIcon';
+import { IconBadge, CircleIcon } from '../components/AppIcon';
 import { COLORS, GRADIENTS, SPACING, RADIUS, FONTS, SHADOWS, rs, ms } from '../constants/theme';
 
 const QUOTES = [
@@ -20,7 +19,7 @@ const QUOTES = [
 ];
 
 export default function HomeScreen({ navigation }) {
-  const { history, stats, refreshHistory } = useContext(AIContext);
+  const { history, stats, goals, refreshHistory, refreshGoals } = useContext(AIContext);
   const { user } = useContext(AuthContext);
   const recent = history.slice(0, 5);
 
@@ -37,7 +36,7 @@ export default function HomeScreen({ navigation }) {
   const [qi, setQi] = useState(0);
   const quoteOp = useRef(new Animated.Value(1)).current;
 
-  useFocusEffect(useCallback(() => { refreshHistory(); }, [refreshHistory]));
+  useFocusEffect(useCallback(() => { refreshHistory(); refreshGoals(); }, [refreshHistory, refreshGoals]));
 
   useEffect(() => {
     Animated.stagger(200, [
@@ -90,7 +89,11 @@ export default function HomeScreen({ navigation }) {
               </View>
               <TouchableOpacity onPress={() => navigation.navigate('ProfileTab')}>
                 <LinearGradient colors={GRADIENTS.accent} style={st.avatarSmall}>
-                  <Text style={st.avatarText}>{user?.avatar || '?'}</Text>
+                  {user?.avatar ? (
+                    <Text style={st.avatarText}>{user.avatar}</Text>
+                  ) : (
+                    <Ionicons name="school" size={ms(22)} color={COLORS.white} />
+                  )}
                 </LinearGradient>
               </TouchableOpacity>
             </View>
@@ -99,52 +102,61 @@ export default function HomeScreen({ navigation }) {
 
         {/* Stats */}
         <Animated.View style={[st.statsRow, { opacity: statsOp, transform: [{ translateY: statsY }] }]}>
-          <View style={st.statCard}>
+          <TouchableOpacity style={st.statCard} activeOpacity={0.7} onPress={() => navigation.getParent()?.navigate('CameraTab')}>
             <IconBadge name="camera-outline" size={18} gradient={GRADIENTS.accent} bgSize={36} radius={12} />
             <Text style={st.statNum}>{stats.totalScans || 0}</Text>
             <Text style={st.statLabel}>Scanned</Text>
-          </View>
-          <View style={st.statCard}>
+          </TouchableOpacity>
+          <TouchableOpacity style={st.statCard} activeOpacity={0.7} onPress={() => navigation.getParent()?.navigate('HistoryTab')}>
             <IconBadge name="bookmark-outline" size={18} gradient={GRADIENTS.purple} bgSize={36} radius={12} />
             <Text style={st.statNum}>{stats.totalSaved || 0}</Text>
             <Text style={st.statLabel}>Saved</Text>
-          </View>
-          <View style={st.statCard}>
+          </TouchableOpacity>
+          <TouchableOpacity style={st.statCard} activeOpacity={0.7} onPress={() => navigation.getParent()?.navigate('GoalsTab')}>
             <IconBadge name="flame-outline" size={18} gradient={GRADIENTS.blue} bgSize={36} radius={12} />
             <Text style={st.statNum}>{stats.todayScans || 0}</Text>
             <Text style={st.statLabel}>Today</Text>
-          </View>
+          </TouchableOpacity>
         </Animated.View>
 
-        {/* Daily Progress */}
-        <Animated.View style={[st.dailyWrap, { opacity: statsOp, transform: [{ translateY: statsY }] }]}>
-          <View style={st.dailyCard}>
-            <View style={st.dailyTop}>
-              <View style={st.dailyInfo}>
-                <Ionicons name="today-outline" size={18} color={COLORS.accent} />
-                <Text style={st.dailyTitle}>Today's Progress</Text>
-              </View>
-              <Text style={st.dailyPercent}>{Math.min((stats.todayScans || 0) * 10, 100)}%</Text>
-            </View>
-            <View style={st.progressBarBg}>
-              <LinearGradient
-                colors={Math.min((stats.todayScans || 0) * 10, 100) >= 100 ? ['#34D399', '#22D3EE'] : GRADIENTS.accent}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                style={[st.progressBarFill, { width: `${Math.min((stats.todayScans || 0) * 10, 100)}%` }]}
-              />
-            </View>
-            <View style={st.dailyBottom}>
-              <Text style={st.dailyGoalText}>
-                {Math.min((stats.todayScans || 0) * 10, 100) >= 100
-                  ? 'Goal complete! Great job!'
-                  : `${stats.todayScans || 0}/10 scans today`}
-              </Text>
-              {Math.min((stats.todayScans || 0) * 10, 100) >= 100 && (
-                <Ionicons name="checkmark-circle" size={16} color={COLORS.success} />
-              )}
-            </View>
-          </View>
-        </Animated.View>
+        {/* Daily Progress — based on real goals */}
+        {(() => {
+          const lessonProg = goals.dailyLessons > 0 ? Math.min(goals.todayLessons / goals.dailyLessons, 1) : 0;
+          const timeProg = goals.dailyMinutes > 0 ? Math.min(goals.todayReadingMinutes / goals.dailyMinutes, 1) : 0;
+          const overallProg = Math.round(((lessonProg + timeProg) / 2) * 100);
+          const allDone = overallProg >= 100;
+
+          return (
+            <Animated.View style={[st.dailyWrap, { opacity: statsOp, transform: [{ translateY: statsY }] }]}>
+              <TouchableOpacity style={st.dailyCard} activeOpacity={0.8} onPress={() => navigation.getParent()?.navigate('GoalsTab')}>
+                <View style={st.dailyTop}>
+                  <View style={st.dailyInfo}>
+                    <Ionicons name="today-outline" size={18} color={COLORS.accent} />
+                    <Text style={st.dailyTitle}>Today's Progress</Text>
+                  </View>
+                  <Text style={[st.dailyPercent, allDone && { color: COLORS.success }]}>{overallProg}%</Text>
+                </View>
+                <View style={st.progressBarBg}>
+                  <LinearGradient
+                    colors={allDone ? ['#34D399', '#22D3EE'] : GRADIENTS.accent}
+                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                    style={[st.progressBarFill, { width: `${Math.max(overallProg, 2)}%` }]}
+                  />
+                </View>
+                <View style={st.dailyBottom}>
+                  <Text style={st.dailyGoalText}>
+                    {allDone
+                      ? 'All goals complete! Great job!'
+                      : `${goals.todayLessons}/${goals.dailyLessons} lessons · ${goals.todayReadingMinutes}/${goals.dailyMinutes}m reading`}
+                  </Text>
+                  {allDone && (
+                    <Ionicons name="checkmark-circle" size={16} color={COLORS.success} />
+                  )}
+                </View>
+              </TouchableOpacity>
+            </Animated.View>
+          );
+        })()}
 
         {/* CTA */}
         <Animated.View style={[st.ctaWrap, { opacity: ctaOp, transform: [{ scale: ctaScale }] }]}>
@@ -160,25 +172,13 @@ export default function HomeScreen({ navigation }) {
         </Animated.View>
 
         <Animated.View style={{ opacity: restOp, transform: [{ translateY: restY }] }}>
-          {/* Motivation */}
-          <View style={st.section}>
-            <Text style={st.secTitle}>Daily Motivation</Text>
-            <View style={st.quoteCard}>
-              <Ionicons name="chatbubble-ellipses-outline" size={18} color={COLORS.accent} />
-              <Animated.Text style={[st.quoteText, { opacity: quoteOp }]}>{QUOTES[qi]}</Animated.Text>
-              <View style={st.dots}>
-                {QUOTES.map((_, i) => <View key={i} style={[st.dot, i === qi && st.dotActive]} />)}
-              </View>
-            </View>
-          </View>
-
           {/* How it works */}
           <View style={st.section}>
             <Text style={st.secTitle}>How It Works</Text>
             <View style={st.stepsRow}>
               {[
                 { icon: 'camera-outline', label: 'Capture', color: COLORS.accent },
-                { icon: 'sparkles-outline', label: 'Analyze', color: COLORS.accentPink },
+                { icon: 'bulb-outline', label: 'Analyze', color: COLORS.accentPink },
                 { icon: 'book-outline', label: 'Learn', color: COLORS.cyan },
               ].map((item, i) => (
                 <React.Fragment key={i}>
@@ -196,95 +196,30 @@ export default function HomeScreen({ navigation }) {
             </View>
           </View>
 
-          {/* Why EasyTutor */}
+          {/* About EasyTutor — compact link */}
           <View style={st.section}>
-            <Text style={st.secTitle}>Why EasyTutor?</Text>
-            <View style={st.whyCard}>
-              <LinearGradient colors={GRADIENTS.cardAccent} style={st.whyGradientBg}>
-                <Text style={st.whyHeadline}>
-                  Makes your books{'\n'}
-                  <Text style={{ color: COLORS.accent }}>very simple</Text> to understand
-                </Text>
-                <Text style={st.whySubtext}>
-                  Your learning speed increases when complex topics become easy and fun.
-                </Text>
+            <TouchableOpacity activeOpacity={0.8} onPress={() => navigation.navigate('About')} style={st.aboutLinkCard}>
+              <LinearGradient colors={GRADIENTS.cardAccent} style={st.aboutLinkGradient}>
+                <View style={st.aboutLinkLeft}>
+                  <IconBadge name="school" size={18} gradient={GRADIENTS.accent} bgSize={38} radius={13} />
+                  <View style={{ flex: 1, marginLeft: rs(12) }}>
+                    <Text style={st.aboutLinkTitle}>About EasyTutor</Text>
+                    <Text style={st.aboutLinkSub}>Features, quiz practice & more</Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
               </LinearGradient>
-
-              {/* Benefit cards */}
-              <View style={st.benefitRow}>
-                <View style={[st.benefitCard, { borderColor: COLORS.accent + '30' }]}>
-                  <LinearGradient colors={GRADIENTS.accent} style={st.benefitIconWrap}>
-                    <Ionicons name="book-outline" size={20} color={COLORS.white} />
-                  </LinearGradient>
-                  <Text style={st.benefitTitle}>Simple Summaries</Text>
-                  <Text style={st.benefitDesc}>Hard textbook chapters become 2-3 easy sentences anyone can understand</Text>
-                </View>
-                <View style={[st.benefitCard, { borderColor: COLORS.accentPink + '30' }]}>
-                  <LinearGradient colors={['#EC4899', '#F472B6']} style={st.benefitIconWrap}>
-                    <Ionicons name="rocket-outline" size={20} color={COLORS.white} />
-                  </LinearGradient>
-                  <Text style={st.benefitTitle}>Faster Learning</Text>
-                  <Text style={st.benefitDesc}>Visual explanations help you learn 3x faster than reading alone</Text>
-                </View>
-              </View>
-
-              <View style={st.benefitRow}>
-                <View style={[st.benefitCard, { borderColor: COLORS.cyan + '30' }]}>
-                  <LinearGradient colors={GRADIENTS.blue} style={st.benefitIconWrap}>
-                    <Ionicons name="globe-outline" size={20} color={COLORS.white} />
-                  </LinearGradient>
-                  <Text style={st.benefitTitle}>Real World Examples</Text>
-                  <Text style={st.benefitDesc}>Connect lessons to everyday life with relatable examples</Text>
-                </View>
-                <View style={[st.benefitCard, { borderColor: COLORS.success + '30' }]}>
-                  <LinearGradient colors={['#34D399', '#22D3EE']} style={st.benefitIconWrap}>
-                    <Ionicons name="key-outline" size={20} color={COLORS.white} />
-                  </LinearGradient>
-                  <Text style={st.benefitTitle}>Key Words</Text>
-                  <Text style={st.benefitDesc}>Important vocabulary highlighted to build a strong word bank</Text>
-                </View>
-              </View>
-
-              {/* Highlight banner */}
-              <TouchableOpacity activeOpacity={0.85} onPress={() => navigation.navigate('CameraTab')}>
-                <LinearGradient colors={GRADIENTS.accent} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={st.whyBanner}>
-                  <Ionicons name="sparkles" size={18} color={COLORS.white} />
-                  <Text style={st.whyBannerText}>Snap a photo. Learn in seconds.</Text>
-                  <Ionicons name="arrow-forward" size={16} color={COLORS.white} />
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
+            </TouchableOpacity>
           </View>
 
-          {/* About EasyTutor */}
+          {/* Motivation */}
           <View style={st.section}>
-            <Text style={st.secTitle}>About EasyTutor</Text>
-            <View style={st.aboutCard}>
-              <View style={st.aboutHeader}>
-                <IconBadge name="sparkles" size={20} gradient={GRADIENTS.accent} bgSize={40} radius={14} />
-                <View style={{ flex: 1, marginLeft: 14 }}>
-                  <Text style={st.aboutAppName}>EasyTutor</Text>
-                  <Text style={st.aboutTagline}>AI-Powered Learning for Everyone</Text>
-                </View>
-              </View>
-              <Text style={st.aboutDesc}>
-                EasyTutor makes learning effortless for everyone. Simply take a photo of any text — from textbooks, notes, or problems — and our AI instantly explains it in simple, easy-to-understand language.
-              </Text>
-              <View style={st.aboutFeatures}>
-                {[
-                  { icon: 'flash-outline', label: 'Instant AI Analysis', desc: 'Powered by advanced AI', color: COLORS.accent },
-                  { icon: 'shield-checkmark-outline', label: 'Safe & Private', desc: 'Data stays on your device', color: COLORS.success },
-                  { icon: 'school-outline', label: 'Class 1st–12th+', desc: 'For every grade level', color: COLORS.accentPink },
-                  { icon: 'wallet-outline', label: '100% Free', desc: 'No hidden charges ever', color: COLORS.cyan },
-                ].map((f, i) => (
-                  <View key={i} style={st.aboutFeatureRow}>
-                    <GlowIcon name={f.icon} color={f.color} size={18} bgSize={36} />
-                    <View style={st.aboutFeatureText}>
-                      <Text style={st.aboutFeatureLabel}>{f.label}</Text>
-                      <Text style={st.aboutFeatureDesc}>{f.desc}</Text>
-                    </View>
-                  </View>
-                ))}
+            <Text style={st.secTitle}>Daily Motivation</Text>
+            <View style={st.quoteCard}>
+              <Ionicons name="chatbubble-ellipses-outline" size={18} color={COLORS.accent} />
+              <Animated.Text style={[st.quoteText, { opacity: quoteOp }]}>{QUOTES[qi]}</Animated.Text>
+              <View style={st.dots}>
+                {QUOTES.map((_, i) => <View key={i} style={[st.dot, i === qi && st.dotActive]} />)}
               </View>
             </View>
           </View>
@@ -329,7 +264,7 @@ export default function HomeScreen({ navigation }) {
 
 const st = {
   root: { flex: 1, backgroundColor: COLORS.bgDeep },
-  hero: { paddingTop: rs(60), paddingBottom: rs(32), paddingHorizontal: SPACING.md, borderBottomLeftRadius: rs(24), borderBottomRightRadius: rs(24), overflow: 'hidden' },
+  hero: { paddingTop: rs(36), paddingBottom: rs(36), paddingHorizontal: SPACING.md, borderBottomLeftRadius: rs(24), borderBottomRightRadius: rs(24), overflow: 'hidden' },
   orb: { position: 'absolute', borderRadius: 999 },
   orb1: { width: rs(200), height: rs(200), backgroundColor: COLORS.accentGlow, top: rs(-60), right: rs(-60) },
   orb2: { width: rs(160), height: rs(160), backgroundColor: COLORS.cyanGlow, bottom: rs(-40), left: rs(-40) },
@@ -340,11 +275,11 @@ const st = {
   avatarSmall: { width: rs(44), height: rs(44), borderRadius: rs(15), justifyContent: 'center', alignItems: 'center' },
   avatarText: { fontSize: ms(18), fontWeight: '800', color: COLORS.white },
   statsRow: { flexDirection: 'row', paddingHorizontal: SPACING.md, marginTop: rs(-16), gap: SPACING.sm, zIndex: 5 },
-  statCard: { flex: 1, backgroundColor: COLORS.bgCard, borderRadius: RADIUS.xl, padding: rs(18), alignItems: 'center', borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.card },
-  statNum: { fontSize: ms(24), fontWeight: '800', color: COLORS.textPrimary, marginTop: rs(6) },
+  statCard: { flex: 1, backgroundColor: COLORS.bgCard, borderRadius: RADIUS.xl, padding: rs(16), alignItems: 'center', borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.card },
+  statNum: { fontSize: ms(22), fontWeight: '800', color: COLORS.textPrimary, marginTop: rs(6) },
   statLabel: { ...FONTS.caption, color: COLORS.textMuted, marginTop: 2 },
-  dailyWrap: { paddingHorizontal: SPACING.md, marginTop: SPACING.sm },
-  dailyCard: { backgroundColor: COLORS.bgCard, borderRadius: RADIUS.xl, padding: rs(16), borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.card },
+  dailyWrap: { paddingHorizontal: SPACING.md, marginTop: rs(28) },
+  dailyCard: { backgroundColor: COLORS.bgCard, borderRadius: RADIUS.xl, padding: rs(14), borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.card },
   dailyTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: rs(10) },
   dailyInfo: { flexDirection: 'row', alignItems: 'center', gap: rs(8) },
   dailyTitle: { ...FONTS.bodySmall, color: COLORS.textPrimary, fontWeight: '700' },
@@ -353,15 +288,15 @@ const st = {
   progressBarFill: { height: '100%', borderRadius: rs(5), minWidth: 4 },
   dailyBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: rs(8) },
   dailyGoalText: { ...FONTS.caption, color: COLORS.textMuted },
-  ctaWrap: { paddingHorizontal: SPACING.md, marginTop: SPACING.lg },
+  ctaWrap: { paddingHorizontal: SPACING.md, marginTop: rs(28) },
   ctaBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: rs(10), paddingVertical: rs(16), borderRadius: RADIUS.xxl, ...SHADOWS.accentGlow },
   ctaText: { ...FONTS.buttonLarge, color: COLORS.white },
   ctaArrow: { width: rs(28), height: rs(28), borderRadius: rs(14), backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
-  section: { marginTop: SPACING.lg, paddingHorizontal: SPACING.md },
-  secHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: rs(12) },
-  secTitle: { ...FONTS.h3, color: COLORS.textPrimary, marginBottom: rs(12) },
+  section: { marginTop: rs(28), paddingHorizontal: SPACING.md },
+  secHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: rs(10) },
+  secTitle: { ...FONTS.h3, color: COLORS.textPrimary, marginBottom: rs(10) },
   seeAll: { ...FONTS.bodySmall, color: COLORS.accent, fontWeight: '600' },
-  quoteCard: { backgroundColor: COLORS.bgCard, borderRadius: RADIUS.xl, padding: rs(18), alignItems: 'center', borderWidth: 1, borderColor: COLORS.border, gap: rs(10) },
+  quoteCard: { backgroundColor: COLORS.bgCard, borderRadius: RADIUS.xl, padding: rs(16), alignItems: 'center', borderWidth: 1, borderColor: COLORS.border, gap: rs(10) },
   quoteText: { ...FONTS.body, color: COLORS.textSecondary, textAlign: 'center', fontStyle: 'italic', lineHeight: ms(22) },
   dots: { flexDirection: 'row', gap: rs(5) },
   dot: { width: rs(6), height: rs(6), borderRadius: rs(3), backgroundColor: COLORS.textMuted },
@@ -371,32 +306,15 @@ const st = {
   stepLabel: { ...FONTS.caption, color: COLORS.textSecondary, marginTop: rs(8), fontWeight: '600' },
   stepConnector: { width: rs(30), alignItems: 'center', paddingBottom: SPACING.lg },
   stepConnectorLine: { width: rs(24), height: 1.5, backgroundColor: COLORS.border },
-  footerCard: { borderRadius: RADIUS.xl, padding: rs(18), alignItems: 'center', borderWidth: 1, borderColor: COLORS.borderAccent, gap: rs(8) },
+  footerCard: { borderRadius: RADIUS.xl, padding: rs(16), alignItems: 'center', borderWidth: 1, borderColor: COLORS.borderAccent, gap: rs(8) },
   footerText: { ...FONTS.body, color: COLORS.textSecondary, textAlign: 'center', lineHeight: ms(22) },
   creditWrap: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: rs(6), marginTop: rs(16), paddingVertical: rs(8) },
   creditText: { ...FONTS.caption, color: COLORS.textMuted },
   creditName: { color: COLORS.accentLight, fontWeight: '700' },
-  // Why EasyTutor section
-  whyCard: { backgroundColor: COLORS.bgCard, borderRadius: RADIUS.xl, overflow: 'hidden', borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.card },
-  whyGradientBg: { padding: rs(20), paddingBottom: rs(16) },
-  whyHeadline: { ...FONTS.h2, color: COLORS.textPrimary, lineHeight: ms(30), marginBottom: rs(8) },
-  whySubtext: { ...FONTS.body, color: COLORS.textSecondary, lineHeight: ms(22) },
-  benefitRow: { flexDirection: 'row', gap: SPACING.sm, paddingHorizontal: rs(10), marginTop: SPACING.sm },
-  benefitCard: { flex: 1, backgroundColor: COLORS.bgSecondary, borderRadius: RADIUS.lg, padding: rs(14), borderWidth: 1, alignItems: 'center' },
-  benefitIconWrap: { width: rs(40), height: rs(40), borderRadius: rs(13), justifyContent: 'center', alignItems: 'center', marginBottom: rs(10) },
-  benefitTitle: { ...FONTS.bodySmall, color: COLORS.textPrimary, fontWeight: '700', textAlign: 'center', marginBottom: rs(4) },
-  benefitDesc: { ...FONTS.caption, color: COLORS.textMuted, textAlign: 'center', lineHeight: ms(16) },
-  whyBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: rs(8), paddingVertical: rs(14), margin: rs(10), marginTop: rs(12), borderRadius: RADIUS.lg },
-  whyBannerText: { ...FONTS.button, color: COLORS.white },
-  // About section
-  aboutCard: { backgroundColor: COLORS.bgCard, borderRadius: RADIUS.xl, padding: rs(18), borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.card },
-  aboutHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: rs(12) },
-  aboutAppName: { ...FONTS.h3, color: COLORS.textPrimary },
-  aboutTagline: { ...FONTS.caption, color: COLORS.textMuted, marginTop: 2 },
-  aboutDesc: { ...FONTS.body, color: COLORS.textSecondary, lineHeight: ms(22), marginBottom: rs(14) },
-  aboutFeatures: { gap: rs(10) },
-  aboutFeatureRow: { flexDirection: 'row', alignItems: 'center' },
-  aboutFeatureText: { marginLeft: rs(12), flex: 1 },
-  aboutFeatureLabel: { ...FONTS.bodySmall, color: COLORS.textPrimary, fontWeight: '600' },
-  aboutFeatureDesc: { ...FONTS.caption, color: COLORS.textMuted, marginTop: 1 },
+  // About link card
+  aboutLinkCard: { backgroundColor: COLORS.bgCard, borderRadius: RADIUS.xl, overflow: 'hidden', borderWidth: 1, borderColor: COLORS.borderAccent, ...SHADOWS.card },
+  aboutLinkGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: rs(16) },
+  aboutLinkLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  aboutLinkTitle: { ...FONTS.bodySmall, color: COLORS.textPrimary, fontWeight: '700' },
+  aboutLinkSub: { ...FONTS.caption, color: COLORS.textMuted, marginTop: 1 },
 };

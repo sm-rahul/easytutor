@@ -277,7 +277,7 @@ export default function QuizScreen({ navigation, route }) {
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.bgDeep },
-  scroll: { paddingHorizontal: SPACING.md, paddingTop: rs(50), paddingBottom: rs(40) },
+  scroll: { paddingHorizontal: SPACING.md, paddingTop: rs(36), paddingBottom: rs(36) },
 
   // Loading
   loadingContainer: {

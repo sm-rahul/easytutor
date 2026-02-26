@@ -84,8 +84,8 @@ export const common = StyleSheet.create({
 // ============================================================
 export const header = StyleSheet.create({
   container: {
-    paddingTop: rs(56),
-    paddingBottom: rs(24),
+    paddingTop: rs(36),
+    paddingBottom: rs(36),
     paddingHorizontal: SPACING.md,
     borderBottomLeftRadius: rs(24),
     borderBottomRightRadius: rs(24),
@@ -110,8 +110,8 @@ export const header = StyleSheet.create({
 export const home = StyleSheet.create({
   // Hero
   hero: {
-    paddingTop: rs(60),
-    paddingBottom: rs(50),
+    paddingTop: rs(36),
+    paddingBottom: rs(36),
     paddingHorizontal: SPACING.md,
     borderBottomLeftRadius: rs(32),
     borderBottomRightRadius: rs(32),
@@ -720,6 +720,7 @@ export const historyCard = StyleSheet.create({
 // ============================================================
 export const gradientButton = StyleSheet.create({
   wrapper: {
+    width: '100%',
     borderRadius: RADIUS.xl,
     ...SHADOWS.accentGlow,
   },

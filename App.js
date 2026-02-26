@@ -23,8 +23,12 @@ import SummaryScreen from './src/screens/SummaryScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
 import DetailScreen from './src/screens/DetailScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
+import GoalsScreen from './src/screens/GoalsScreen';
 import QuizScreen from './src/screens/QuizScreen';
 import QuizResultScreen from './src/screens/QuizResultScreen';
+import QuizHistoryScreen from './src/screens/QuizHistoryScreen';
+import QuizAttemptDetailScreen from './src/screens/QuizAttemptDetailScreen';
+import AboutScreen from './src/screens/AboutScreen';
 
 import { COLORS, GRADIENTS, SHADOWS } from './src/constants/theme';
 
@@ -46,6 +50,7 @@ function HomeStack() {
       <Stack.Screen name="HomeDetail" component={DetailScreen} options={detailHeader} />
       <Stack.Screen name="HomeQuiz" component={QuizScreen} />
       <Stack.Screen name="HomeQuizResult" component={QuizResultScreen} />
+      <Stack.Screen name="About" component={AboutScreen} options={{ ...detailHeader, headerTitle: 'About EasyTutor' }} />
     </Stack.Navigator>
   );
 }
@@ -68,6 +73,16 @@ function HistoryStack() {
       <Stack.Screen name="HistoryDetail" component={DetailScreen} options={detailHeader} />
       <Stack.Screen name="HistoryQuiz" component={QuizScreen} />
       <Stack.Screen name="HistoryQuizResult" component={QuizResultScreen} />
+    </Stack.Navigator>
+  );
+}
+
+function GoalsStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Goals" component={GoalsScreen} />
+      <Stack.Screen name="QuizHistory" component={QuizHistoryScreen} />
+      <Stack.Screen name="QuizAttemptDetail" component={QuizAttemptDetailScreen} />
     </Stack.Navigator>
   );
 }
@@ -120,6 +135,14 @@ function MainTabs() {
         }}
       />
       <Tab.Screen
+        name="GoalsTab"
+        component={GoalsStack}
+        options={{
+          tabBarLabel: 'Goals',
+          tabBarIcon: ({ focused }) => <TabIcon name="flag" focused={focused} />,
+        }}
+      />
+      <Tab.Screen
         name="ProfileTab"
         component={ProfileScreen}
         options={{
@@ -145,7 +168,7 @@ function SplashScreen() {
   return (
     <View style={s.splash}>
       <LinearGradient colors={GRADIENTS.accent} style={s.splashIcon}>
-        <Ionicons name="sparkles" size={44} color={COLORS.white} />
+        <Ionicons name="school" size={44} color={COLORS.white} />
       </LinearGradient>
       <Text style={s.splashTitle}>Easy<Text style={{ color: COLORS.accent }}>Tutor</Text></Text>
       <ActivityIndicator color={COLORS.accent} size="large" style={{ marginTop: 24 }} />
@@ -213,14 +236,14 @@ const s = StyleSheet.create({
     elevation: 0,
   },
   tabLabel: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '600',
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
   iconGradient: {
-    width: 38,
-    height: 38,
-    borderRadius: 13,
+    width: 34,
+    height: 34,
+    borderRadius: 11,
     justifyContent: 'center',
     alignItems: 'center',
     ...SHADOWS.glow,

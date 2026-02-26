@@ -4,6 +4,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, rs, ms } from '../constants/theme';
 import { historyCard as styles } from '../styles/styles';
 
+const formatReadTime = (seconds) => {
+  if (!seconds || seconds < 3) return null;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  if (m === 0) return `${s}s`;
+  return s > 0 ? `${m}m ${s}s` : `${m}m`;
+};
+
 const BADGE_CONFIG = {
   math: { icon: 'calculator', label: 'MATH', color: '#22D3EE', bg: 'rgba(34, 211, 238, 0.15)' },
   aptitude: { icon: 'bulb', label: 'APTITUDE', color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.15)' },
@@ -39,6 +47,7 @@ export default function HistoryCard({ item, onPress, onDelete, compact }) {
   const summary = item.result?.summary || 'No summary available';
   const title = summary.length > 60 ? summary.substring(0, 60) + '...' : summary;
   const contentType = item.result?.type;
+  const readTime = formatReadTime(item.readTimeSeconds);
 
   if (compact) {
     return (
@@ -51,6 +60,12 @@ export default function HistoryCard({ item, onPress, onDelete, compact }) {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: rs(6) }}>
             <TypeBadge type={contentType} />
             <Text style={styles.compactDate}>{dateStr}</Text>
+            {readTime && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: rs(3) }}>
+                <Ionicons name="time-outline" size={rs(10)} color={COLORS.textMuted} />
+                <Text style={{ fontSize: ms(9), color: COLORS.textMuted }}>{readTime}</Text>
+              </View>
+            )}
           </View>
         </View>
       </TouchableOpacity>
@@ -68,6 +83,12 @@ export default function HistoryCard({ item, onPress, onDelete, compact }) {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: rs(6), marginBottom: rs(4) }}>
             <TypeBadge type={contentType} />
             <Text style={styles.date}>{dateStr}</Text>
+            {readTime && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: rs(3) }}>
+                <Ionicons name="time-outline" size={rs(11)} color={COLORS.textMuted} />
+                <Text style={{ fontSize: ms(10), color: COLORS.textMuted }}>{readTime}</Text>
+              </View>
+            )}
           </View>
           {item.result?.keyWords && (
             <View style={styles.tags}>

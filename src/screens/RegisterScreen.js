@@ -213,8 +213,8 @@ const s = StyleSheet.create({
   scroll: {
     flexGrow: 1,
     paddingHorizontal: SPACING.md,
-    paddingTop: rs(50),
-    paddingBottom: rs(32),
+    paddingTop: rs(36),
+    paddingBottom: rs(36),
   },
   back: {
     width: rs(42),
@@ -293,6 +293,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     gap: rs(10),
     height: rs(52),
+    width: '100%',
     borderRadius: RADIUS.xl,
     ...SHADOWS.accentGlow,
   },

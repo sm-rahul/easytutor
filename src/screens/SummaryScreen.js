@@ -16,6 +16,7 @@ import { AIContext } from '../contexts/AIContext';
 import GradientButton from '../components/GradientButton';
 import { COLORS, GRADIENTS, SPACING, rs, ms } from '../constants/theme';
 import { downloadPdf } from '../utils/downloadPdf';
+import { apiUpdateHistoryReadTime } from '../services/api';
 import { common, header as headerStyles, summary as styles, solution as solutionStyles } from '../styles/styles';
 
 // Badge config for each content type
@@ -38,10 +39,16 @@ export default function SummaryScreen({ navigation }) {
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', () => {
       const seconds = Math.round((Date.now() - readingStartTime.current) / 1000);
-      if (seconds >= 3) logReadingTime(seconds);
+      if (seconds >= 3) {
+        logReadingTime(seconds);
+        // Also save per-item reading time if lesson was saved
+        if (savedItemId) {
+          apiUpdateHistoryReadTime(savedItemId, seconds).catch(() => {});
+        }
+      }
     });
     return unsubscribe;
-  }, [navigation, logReadingTime]);
+  }, [navigation, logReadingTime, savedItemId]);
 
   // Staggered card animations (8 slots to cover steps + answer cards)
   const anims = useRef([...Array(8)].map(() => ({
@@ -176,7 +183,7 @@ export default function SummaryScreen({ navigation }) {
     <View style={common.screen}>
       {/* Header */}
       <LinearGradient colors={GRADIENTS.hero} style={headerStyles.container}>
-        <Ionicons name="sparkles" size={rs(32)} color={COLORS.accent} style={{ marginBottom: rs(6) }} />
+        <Ionicons name="school" size={rs(32)} color={COLORS.accent} style={{ marginBottom: rs(6) }} />
         <Text style={headerStyles.title}>Your Summary</Text>
         <Text style={headerStyles.subtitle}>Here's what we found!</Text>
       </LinearGradient>

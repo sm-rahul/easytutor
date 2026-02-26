@@ -229,43 +229,43 @@ export default function QuizResultScreen({ navigation, route }) {
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.bgDeep },
-  scroll: { paddingHorizontal: SPACING.md, paddingTop: rs(50), paddingBottom: rs(40) },
+  scroll: { paddingHorizontal: SPACING.md, paddingTop: rs(36), paddingBottom: rs(36) },
 
   // Score Header
-  scoreHeader: { alignItems: 'center', marginBottom: rs(20) },
+  scoreHeader: { alignItems: 'center', marginBottom: rs(16) },
   scoreIconWrap: {
-    width: rs(80), height: rs(80), borderRadius: rs(28),
+    width: rs(72), height: rs(72), borderRadius: rs(24),
     justifyContent: 'center', alignItems: 'center', ...SHADOWS.accentGlow,
   },
-  completeText: { ...FONTS.h1, color: COLORS.textPrimary, marginTop: rs(16) },
+  completeText: { ...FONTS.h1, color: COLORS.textPrimary, marginTop: rs(12) },
   quizTitle: { ...FONTS.bodySmall, color: COLORS.textMuted, marginTop: rs(4) },
 
   // Score Card
   scoreCard: {
-    backgroundColor: COLORS.bgCard, borderRadius: RADIUS.xl, padding: rs(24),
-    borderWidth: 1, borderColor: COLORS.border, marginBottom: rs(24),
+    backgroundColor: COLORS.bgCard, borderRadius: RADIUS.xl, padding: rs(20),
+    borderWidth: 1, borderColor: COLORS.border, marginBottom: rs(20),
     alignItems: 'center', ...SHADOWS.card,
   },
-  scorePercent: { fontSize: ms(48), fontWeight: '800' },
+  scorePercent: { fontSize: ms(44), fontWeight: '800' },
   scoreLabel: { ...FONTS.h3, color: COLORS.textSecondary, marginTop: rs(4) },
-  scoreDivider: { height: 1, backgroundColor: COLORS.border, width: '100%', marginVertical: rs(16) },
+  scoreDivider: { height: 1, backgroundColor: COLORS.border, width: '100%', marginVertical: rs(14) },
   scoreRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', width: '100%' },
-  scoreStat: { alignItems: 'center', gap: rs(4) },
+  scoreStat: { alignItems: 'center', gap: rs(3) },
   scoreStatNum: { ...FONTS.h3, color: COLORS.textPrimary },
   scoreStatLabel: { ...FONTS.caption, color: COLORS.textMuted },
-  scoreStatDivider: { width: 1, height: rs(40), backgroundColor: COLORS.border },
+  scoreStatDivider: { width: 1, height: rs(36), backgroundColor: COLORS.border },
 
   // Section
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: rs(8), marginBottom: rs(16) },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: rs(8), marginBottom: rs(12) },
   sectionTitle: { ...FONTS.h3, color: COLORS.textPrimary },
 
   // Answer Card
   answerCard: {
-    backgroundColor: COLORS.bgCard, borderRadius: RADIUS.lg, padding: rs(16),
-    borderWidth: 1, borderColor: COLORS.border, marginBottom: rs(12),
+    backgroundColor: COLORS.bgCard, borderRadius: RADIUS.lg, padding: rs(14),
+    borderWidth: 1, borderColor: COLORS.border, marginBottom: rs(10),
     borderLeftWidth: 3,
   },
-  answerHeader: { flexDirection: 'row', alignItems: 'center', gap: rs(8), marginBottom: rs(10) },
+  answerHeader: { flexDirection: 'row', alignItems: 'center', gap: rs(8), marginBottom: rs(8) },
   answerBadge: {
     width: rs(28), height: rs(28), borderRadius: rs(14),
     justifyContent: 'center', alignItems: 'center',
@@ -273,7 +273,7 @@ const s = StyleSheet.create({
   answerNum: { ...FONTS.caption, color: COLORS.textMuted, flex: 1 },
   correctTag: { ...FONTS.caption, color: COLORS.success, fontWeight: '700' },
   incorrectTag: { ...FONTS.caption, color: COLORS.danger, fontWeight: '700' },
-  answerQuestion: { ...FONTS.body, color: COLORS.textPrimary, marginBottom: rs(12) },
+  answerQuestion: { ...FONTS.body, color: COLORS.textPrimary, marginBottom: rs(10) },
 
   // Options Review
   optionsReview: { gap: rs(6), marginBottom: rs(10) },
@@ -296,15 +296,15 @@ const s = StyleSheet.create({
   explanationText: { ...FONTS.bodySmall, color: COLORS.textSecondary, flex: 1, lineHeight: ms(19) },
 
   // Actions
-  actions: { gap: rs(12), marginTop: rs(8) },
+  actions: { gap: rs(10), marginTop: rs(8) },
   actionBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: rs(8),
-    height: rs(52), borderRadius: RADIUS.xl, ...SHADOWS.accentGlow,
+    height: rs(50), width: '100%', borderRadius: RADIUS.xl, ...SHADOWS.accentGlow,
   },
   actionBtnText: { ...FONTS.buttonLarge, color: COLORS.white },
   secondaryBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: rs(8),
-    height: rs(48), borderRadius: RADIUS.xl,
+    height: rs(48), width: '100%', borderRadius: RADIUS.xl,
     backgroundColor: COLORS.bgCard, borderWidth: 1, borderColor: COLORS.border,
   },
   secondaryBtnText: { ...FONTS.button, color: COLORS.textSecondary },

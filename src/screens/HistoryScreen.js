@@ -1,4 +1,4 @@
-import React, { useContext, useCallback, useEffect, useRef } from 'react';
+import React, { useContext, useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,8 @@ import {
   Animated,
   Easing,
   Platform,
+  TouchableOpacity,
+  StyleSheet,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,8 +19,11 @@ import GradientButton from '../components/GradientButton';
 import { COLORS, GRADIENTS, SPACING, rs } from '../constants/theme';
 import { common, header as headerStyles, history as styles } from '../styles/styles';
 
+const PAGE_SIZE = 5;
+
 export default function HistoryScreen({ navigation }) {
   const { history, removeHistoryItem, refreshHistory } = useContext(AIContext);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   // Entrance animation
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -83,7 +88,7 @@ export default function HistoryScreen({ navigation }) {
       {/* List */}
       <Animated.View style={{ flex: 1, opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
         <FlatList
-          data={history}
+          data={history.slice(0, visibleCount)}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
@@ -95,8 +100,28 @@ export default function HistoryScreen({ navigation }) {
               onDelete={handleDelete}
             />
           )}
+          ListFooterComponent={visibleCount < history.length ? (
+            <TouchableOpacity
+              style={pgStyles.loadMoreBtn}
+              activeOpacity={0.7}
+              onPress={() => setVisibleCount(prev => prev + PAGE_SIZE)}
+            >
+              <Ionicons name="chevron-down-outline" size={rs(16)} color={COLORS.accent} />
+              <Text style={pgStyles.loadMoreText}>Load More ({history.length - visibleCount} remaining)</Text>
+            </TouchableOpacity>
+          ) : null}
         />
       </Animated.View>
     </View>
   );
 }
+
+const pgStyles = StyleSheet.create({
+  loadMoreBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: rs(8),
+    paddingVertical: rs(14), marginTop: rs(4), marginBottom: rs(8),
+    borderRadius: 16, borderWidth: 1, borderColor: COLORS.accent + '30',
+    backgroundColor: COLORS.accent + '08',
+  },
+  loadMoreText: { color: COLORS.accent, fontSize: 14, fontWeight: '600' },
+});

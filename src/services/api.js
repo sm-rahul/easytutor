@@ -65,6 +65,13 @@ export async function apiDeleteHistory(itemId) {
   });
 }
 
+export async function apiUpdateHistoryReadTime(itemId, seconds) {
+  return request(`/history/${itemId}/read-time`, {
+    method: 'PUT',
+    body: { seconds },
+  });
+}
+
 // ============================================================
 // AI ANALYSIS
 // ============================================================
@@ -137,4 +144,8 @@ export async function apiGetQuizHistory(userId) {
 
 export async function apiGetQuizPerformance(userId) {
   return request(`/quiz/performance/${userId}`);
+}
+
+export async function apiGetAttemptDetail(attemptId) {
+  return request(`/quiz/attempt/${attemptId}`);
 }

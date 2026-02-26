@@ -92,7 +92,7 @@ export function AppLogo({ size = 80 }) {
           SHADOWS.accentGlow,
         ]}
       >
-        <Ionicons name="sparkles" size={size * 0.45} color={COLORS.white} />
+        <Ionicons name="school" size={size * 0.45} color={COLORS.white} />
       </LinearGradient>
     </View>
   );

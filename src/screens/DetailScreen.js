@@ -27,21 +27,11 @@ const TYPE_CONFIG = {
 
 export default function DetailScreen({ route, navigation }) {
   const { item } = route.params;
-  const { removeHistoryItem, simplifyResult, logReadingTime } = useContext(AIContext);
+  const { removeHistoryItem, simplifyResult } = useContext(AIContext);
   const [simplifying, setSimplifying] = useState(false);
   const [simplified, setSimplified] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [currentResult, setCurrentResult] = useState(item.result || {});
-  const readingStartTime = useRef(Date.now());
-
-  // Track reading time when leaving screen
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('beforeRemove', () => {
-      const seconds = Math.round((Date.now() - readingStartTime.current) / 1000);
-      if (seconds >= 3) logReadingTime(seconds);
-    });
-    return unsubscribe;
-  }, [navigation, logReadingTime]);
 
   const { summary, visualExplanation, realWorldExamples, keyWords, type, solutionSteps, finalAnswer } = currentResult;
   const isSolvable = type === 'math' || type === 'aptitude';
@@ -54,6 +44,15 @@ export default function DetailScreen({ route, navigation }) {
     day: 'numeric',
     year: 'numeric',
   });
+
+  const formatReadTime = (seconds) => {
+    if (!seconds || seconds < 3) return null;
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    if (m === 0) return `${s}s`;
+    return s > 0 ? `${m}m ${s}s` : `${m}m`;
+  };
+  const readTime = formatReadTime(item.readTimeSeconds);
 
   // Staggered card animations (8 slots for math steps + answer)
   const anims = useRef([...Array(8)].map(() => ({
@@ -166,6 +165,12 @@ export default function DetailScreen({ route, navigation }) {
         <Ionicons name={cfg.icon} size={rs(32)} color={cfg.color} style={{ marginBottom: rs(6) }} />
         <Text style={headerStyles.title}>Saved Lesson</Text>
         <Text style={headerStyles.subtitle}>{dateStr}</Text>
+        {readTime && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: rs(4), marginTop: rs(4) }}>
+            <Ionicons name="time-outline" size={rs(14)} color={COLORS.accent} />
+            <Text style={{ fontSize: ms(12), color: COLORS.accent, fontWeight: '600' }}>Read time: {readTime}</Text>
+          </View>
+        )}
       </LinearGradient>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={common.scrollContent} showsVerticalScrollIndicator={false}>

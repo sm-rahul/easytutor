@@ -67,7 +67,7 @@ export default function LoadingOverlay() {
 
         <Animated.View style={[styles.iconContainer, { transform: [{ scale: pulseAnim }] }]}>
           <Animated.View style={{ transform: [{ rotate: spin }] }}>
-            <Ionicons name="sparkles" size={64} color={COLORS.accent} />
+            <Ionicons name="school" size={64} color={COLORS.accent} />
           </Animated.View>
         </Animated.View>
 

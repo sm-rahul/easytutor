@@ -260,6 +260,7 @@ app.get('/api/history/:userId', async (req, res) => {
           : null,
         finalAnswer: row.final_answer || null,
       },
+      readTimeSeconds: row.read_time_seconds || 0,
       createdAt: row.created_at,
     }));
 
@@ -292,10 +293,21 @@ app.post('/api/history', async (req, res) => {
       ]
     );
 
+    // Increment today's lesson count in stats
+    await pool.query(
+      `INSERT INTO stats (user_id, total_scans, today_lessons_completed, last_reading_date)
+       VALUES (?, 0, 1, CURDATE())
+       ON DUPLICATE KEY UPDATE
+         today_lessons_completed = IF(last_reading_date = CURDATE(), today_lessons_completed + 1, 1),
+         last_reading_date = CURDATE()`,
+      [userId]
+    );
+
     const item = {
       id: insertResult.insertId.toString(),
       imageUri,
       result,
+      readTimeSeconds: 0,
       createdAt: new Date().toISOString(),
     };
 
@@ -303,6 +315,23 @@ app.post('/api/history', async (req, res) => {
   } catch (error) {
     console.error('Save history error:', error);
     res.status(500).json({ success: false, error: 'Could not save history item' });
+  }
+});
+
+// Update read time for a history item
+app.put('/api/history/:itemId/read-time', async (req, res) => {
+  try {
+    const { itemId } = req.params;
+    const { seconds } = req.body;
+    if (!seconds || seconds < 3) return res.json({ success: true });
+    await pool.query(
+      'UPDATE history SET read_time_seconds = read_time_seconds + ? WHERE id = ?',
+      [seconds, itemId]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Update read time error:', error);
+    res.status(500).json({ success: false, error: 'Could not update read time' });
   }
 });
 
@@ -709,7 +738,6 @@ app.post('/api/reading-time/:userId', async (req, res) => {
     await pool.query(
       `UPDATE stats SET
         today_reading_seconds = IF(last_reading_date = CURDATE(), today_reading_seconds + ?, ?),
-        today_lessons_completed = IF(last_reading_date = CURDATE(), today_lessons_completed + 1, 1),
         last_reading_date = CURDATE(),
         total_reading_seconds = total_reading_seconds + ?
       WHERE user_id = ?`,
@@ -1097,56 +1125,6 @@ Generate a quiz based on this content. CRITICAL: For every math/aptitude questio
   }
 });
 
-// Get quiz with questions
-app.get('/api/quiz/:quizId', async (req, res) => {
-  try {
-    const { quizId } = req.params;
-    const showAnswers = req.query.showAnswers === 'true';
-
-    const [quizRows] = await pool.query('SELECT * FROM quizzes WHERE id = ?', [quizId]);
-    if (quizRows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Quiz not found' });
-    }
-
-    const quiz = quizRows[0];
-    const [questions] = await pool.query(
-      'SELECT * FROM quiz_questions WHERE quiz_id = ? ORDER BY question_index',
-      [quizId]
-    );
-
-    const formattedQuestions = questions.map(q => {
-      const base = {
-        id: q.id,
-        index: q.question_index,
-        question: q.question_text,
-        options: [q.option_a, q.option_b, q.option_c, q.option_d],
-        difficulty: q.difficulty,
-      };
-      if (showAnswers) {
-        base.correctIndex = q.correct_option;
-        base.explanation = q.explanation;
-      }
-      return base;
-    });
-
-    res.json({
-      success: true,
-      quiz: {
-        id: quiz.id,
-        title: quiz.title,
-        contentType: quiz.content_type,
-        topicKeywords: typeof quiz.topic_keywords === 'string' ? JSON.parse(quiz.topic_keywords) : quiz.topic_keywords,
-        totalQuestions: quiz.total_questions,
-        createdAt: quiz.created_at,
-      },
-      questions: formattedQuestions,
-    });
-  } catch (error) {
-    console.error('Get quiz error:', error);
-    res.status(500).json({ success: false, error: 'Could not fetch quiz' });
-  }
-});
-
 // Submit quiz answers
 app.post('/api/quiz/:quizId/submit', async (req, res) => {
   try {
@@ -1252,6 +1230,50 @@ app.get('/api/quiz/history/:userId', async (req, res) => {
   }
 });
 
+// Get full details of a specific quiz attempt
+app.get('/api/quiz/attempt/:attemptId', async (req, res) => {
+  try {
+    const { attemptId } = req.params;
+    const [rows] = await pool.query(
+      `SELECT qa.id as attempt_id, qa.quiz_id, qa.score, qa.total_questions, qa.percentage,
+              qa.time_taken_seconds, qa.answers, qa.created_at,
+              q.title, q.content_type, q.topic_keywords
+       FROM quiz_attempts qa
+       JOIN quizzes q ON qa.quiz_id = q.id
+       WHERE qa.id = ?`,
+      [attemptId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Attempt not found' });
+    }
+
+    const r = rows[0];
+    const answers = typeof r.answers === 'string' ? JSON.parse(r.answers) : r.answers;
+    const topicKeywords = typeof r.topic_keywords === 'string' ? JSON.parse(r.topic_keywords) : r.topic_keywords;
+
+    res.json({
+      success: true,
+      attempt: {
+        attemptId: r.attempt_id,
+        quizId: r.quiz_id,
+        title: r.title,
+        contentType: r.content_type,
+        topicKeywords,
+        score: r.score,
+        totalQuestions: r.total_questions,
+        percentage: parseFloat(r.percentage),
+        timeTakenSeconds: r.time_taken_seconds,
+        answers,
+        createdAt: r.created_at,
+      },
+    });
+  } catch (error) {
+    console.error('Quiz attempt detail error:', error);
+    res.status(500).json({ success: false, error: 'Could not fetch attempt details' });
+  }
+});
+
 // Get quiz performance analytics
 app.get('/api/quiz/performance/:userId', async (req, res) => {
   try {
@@ -1313,6 +1335,56 @@ app.get('/api/quiz/performance/:userId', async (req, res) => {
   }
 });
 
+// Get quiz with questions (must be after specific /api/quiz/* routes)
+app.get('/api/quiz/:quizId', async (req, res) => {
+  try {
+    const { quizId } = req.params;
+    const showAnswers = req.query.showAnswers === 'true';
+
+    const [quizRows] = await pool.query('SELECT * FROM quizzes WHERE id = ?', [quizId]);
+    if (quizRows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Quiz not found' });
+    }
+
+    const quiz = quizRows[0];
+    const [questions] = await pool.query(
+      'SELECT * FROM quiz_questions WHERE quiz_id = ? ORDER BY question_index',
+      [quizId]
+    );
+
+    const formattedQuestions = questions.map(q => {
+      const base = {
+        id: q.id,
+        index: q.question_index,
+        question: q.question_text,
+        options: [q.option_a, q.option_b, q.option_c, q.option_d],
+        difficulty: q.difficulty,
+      };
+      if (showAnswers) {
+        base.correctIndex = q.correct_option;
+        base.explanation = q.explanation;
+      }
+      return base;
+    });
+
+    res.json({
+      success: true,
+      quiz: {
+        id: quiz.id,
+        title: quiz.title,
+        contentType: quiz.content_type,
+        topicKeywords: typeof quiz.topic_keywords === 'string' ? JSON.parse(quiz.topic_keywords) : quiz.topic_keywords,
+        totalQuestions: quiz.total_questions,
+        createdAt: quiz.created_at,
+      },
+      questions: formattedQuestions,
+    });
+  } catch (error) {
+    console.error('Get quiz error:', error);
+    res.status(500).json({ success: false, error: 'Could not fetch quiz' });
+  }
+});
+
 // Root route
 app.get('/', (req, res) => {
   res.json({ status: 'ok', message: 'EasyTutor API is running', version: '1.0.0' });
@@ -1346,6 +1418,17 @@ async function migrate() {
     }
   } catch (err) {
     console.error('Migration (math columns) error:', err.message);
+  }
+
+  // Migration: add read_time_seconds to history table
+  try {
+    const [rtCols] = await pool.query("SHOW COLUMNS FROM history LIKE 'read_time_seconds'");
+    if (rtCols.length === 0) {
+      await pool.query("ALTER TABLE history ADD COLUMN read_time_seconds INT DEFAULT 0");
+      console.log('Migration: added read_time_seconds column to history');
+    }
+  } catch (err) {
+    console.error('Migration (read_time) error:', err.message);
   }
 
   // Migration: add daily goals & reading time columns to stats
